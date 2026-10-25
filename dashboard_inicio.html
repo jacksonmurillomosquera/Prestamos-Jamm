@@ -1,0 +1,79 @@
+{% extends "dashboard_base.html" %}
+{% set active_page = 'inicio' %}
+{% block title %}Inicio | Préstamos de Controles de TV{% endblock %}
+{% block content %}
+<section class="dashboard-content dashboard-home">
+  <section class="welcome-banner" aria-labelledby="welcome-title">
+    <div class="welcome-copy">
+      <h1 id="welcome-title"><span>¡Hola!</span><span>{{ usuario_nombre }}</span></span><span></span></h1>
+      <h3>Nos alegra tenerte aquí.</h3>
+      <p><span class="welcome-line"> Desde aquí puedes Gestionar los préstamos, realizar consultas</span><span></span> y mirar la disponibilidad de los controles.</span><span class="welcome-line">Tambien puedes realizar el seguimiento de cada entrega y devolución</span><span class="welcome-final-line">de manera fácil y organizada.</span></p>
+    </div>
+  </section>
+  <nav class="home-quick-actions" aria-label="Accesos rápidos">
+    <article class="quick-action home-search-action">
+      <span class="quick-action-icon" aria-hidden="true">⌕</span>
+      <div class="home-search-content"><strong>Buscar por habitación</strong><small>Consulta pacientes hospitalizados en una habitación</small>
+        <form class="home-patient-search" data-search-type="habitacion"><label class="sr-only" for="home-bed-query">Número de habitación</label><input id="home-bed-query" name="q" type="search" placeholder="Ej. 310 o 434" autocomplete="off" required><button class="primary-action" type="submit">Buscar</button></form>
+      </div>
+    </article>
+    <article class="quick-action home-search-action">
+      <span class="quick-action-icon" aria-hidden="true">⌕</span>
+      <div class="home-search-content"><strong>Buscar por identificación</strong><small>Consulta por documento o historia clínica</small>
+        <form class="home-patient-search" data-search-type="identificacion"><label class="sr-only" for="home-id-query">Número de identificación</label><input id="home-id-query" name="q" type="search" placeholder="Número de documento" autocomplete="off" required><button class="primary-action" type="submit">Buscar</button></form>
+      </div>
+    </article>
+    <a class="quick-action quick-action-transfer home-action-button" href="{{ url_for('traslado') }}"><span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 8h15m0 0-4-4m4 4-4 4M20 16H5m0 0 4 4m-4-4 4-4" /></svg></span><span><strong>Traslados</strong><small>Gestiona cambios de habitación</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></a>
+    <a class="quick-action quick-action-history" href="{{ url_for('historial') }}"><span class="quick-action-icon" aria-hidden="true">▤</span><span><strong>Historial de préstamos</strong><small>Revisa movimientos y devoluciones</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></a>
+  </nav>
+  <section class="home-metrics" aria-labelledby="home-metrics-title">
+    <div class="home-metrics-heading"><p class="eyebrow">Estado del inventario</p><h2 id="home-metrics-title">Resumen de controles</h2></div>
+    <div class="stat-grid home-stat-grid" aria-label="Métricas rápidas">
+      <article class="stat-card stat-green"><span class="stat-icon">▣</span><div><small>Controles disponibles</small><strong id="count-available">159</strong><span class="stat-trend">Inventario inicial cargado</span></div></article>
+      <article class="stat-card stat-red"><span class="stat-icon">◷</span><div><small>Controles en uso</small><strong id="count-in-use">0</strong><span class="stat-trend">Prestados a pacientes</span></div></article>
+      <article class="stat-card stat-orange"><span class="stat-icon">!</span><div><small>Pendientes de devolución</small><strong id="count-pending">0</strong><span class="stat-trend">Sin devoluciones pendientes</span></div></article>
+    </div>
+    
+  </section>
+<dialog class="patient-workflow room-patient-modal" id="room-patient-modal" aria-labelledby="room-patient-modal-title">
+  <div class="room-patient-modal-header"><h2 id="room-patient-modal-title">Paciente encontrado</h2></div>
+  <div id="patient-search-status" class="workflow-status" role="status" aria-live="polite" hidden></div>
+  <section id="room-patients" class="room-patient-list" hidden></section>
+  <section id="patient-details" class="patient-summary" hidden>
+    <h3 id="loan-patient-name"></h3>
+    <dl aria-label="Datos del paciente">
+      <div><dt>CC</dt><dd id="result-patient-identity"></dd></div>
+      <div><dt>Habitaci&#243;n / Cama</dt><dd id="result-patient-bed"></dd></div>
+    </dl>
+  </section>
+  <details id="loan-service-accordion" class="loan-accordion" hidden>
+    <summary><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect><circle cx="12" cy="7" r="1"></circle><path d="M10 11h4m-4 3h4m-4 3h4"></path></svg><span>¿Deseas adquirir el servicio?</span></summary>
+  <form id="home-loan-form" class="loan-form-grid compact-loan-form">
+    <input id="loan-document" type="hidden" autocomplete="off">
+    <div class="field-group modal-wide"><label for="loan-physical-control">Marca del control asignado</label><select id="loan-physical-control" required disabled><option value="">Validar habitación primero</option></select></div>
+    <div class="field-group modal-wide loan-recipient-field"><label for="loan-recipient">Persona que recibe el control</label><input id="loan-recipient" autocomplete="name" placeholder="Nombre de quien recibe" required></div>
+    <div class="field-group modal-wide"><label for="loan-relationship">Parentesco</label><select id="loan-relationship" required><option value="">Selecciona el parentesco</option><option>Paciente</option><option>C&#243;nyuge</option><option>Hijo/a</option><option>Padre/Madre</option><option>Familiar</option><option>Otro</option></select></div>
+    <input id="loan-room-display" type="hidden"><input id="loan-delivered-at" type="hidden">
+    <select id="loan-bed-display" hidden></select>
+    <input id="loan-confirm-bed" type="checkbox" checked hidden><input id="loan-confirm-control" type="checkbox" checked hidden>
+    <div class="workflow-status modal-wide" id="loan-persistence-notice" role="status" aria-live="polite" hidden></div>
+  </form>
+  </details>
+  <details class="no-tv-charge" id="tv-exemption-accordion">
+    <summary id="no-tv-charge-title">No se cobra servicio de TV a:</summary>
+    <fieldset class="tv-exemption-options" aria-label="Categoría de exoneración del servicio de TV">
+      <legend>Selecciona una categoría si el paciente está exento</legend>
+      <label><input type="radio" name="exoneracion_categoria" value="Medicina Prepagada" form="home-loan-form"><span>Medicina Prepagada</span></label>
+      <label><input type="radio" name="exoneracion_categoria" value="Plan Complementario" form="home-loan-form"><span>Plan Complementario</span></label>
+      <label><input type="radio" name="exoneracion_categoria" value="Habitante en situacion de calle" form="home-loan-form"><span>Habitante en situaci&#243;n de calle</span></label>
+      <label><input type="radio" name="exoneracion_categoria" value="Universidad Nacional" form="home-loan-form"><span>Universidad Nacional</span></label>
+      <label><input type="radio" name="exoneracion_categoria" value="Particulares" form="home-loan-form"><span>Particulares</span></label>
+      <label><input type="radio" name="exoneracion_categoria" value="Póliza" form="home-loan-form"><span>Póliza</span></label>
+      <label><input type="radio" name="exoneracion_categoria" value="Empleados y Familiares" form="home-loan-form"><span>Empleados y Familiares</span></label>
+      <label><input type="radio" name="exoneracion_categoria" value="Pacientes que pagan excedentes de habitación" form="home-loan-form"><span>Pacientes que pagan excedentes de habitación</span></label>
+    </fieldset>
+    <p class="tv-exemption-note" id="tv-exemption-note" role="status" aria-live="polite">Si no seleccionas una categoría, el préstamo se registrará con la tarifa habitual.</p>
+  </details>
+  <div class="patient-modal-footer patient-modal-actions"><button id="save-loan" class="primary-action" type="submit" form="home-loan-form" disabled>Guardar pr&#233;stamo</button><button class="secondary-action" id="cancel-loan-form" type="button">Regresar</button><button id="close-patient-workflow" class="secondary-action" type="button">Cerrar</button></div>
+</dialog>
+{% endblock %}

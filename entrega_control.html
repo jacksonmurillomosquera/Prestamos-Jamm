@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Entrega de controles remotos por habitación.">
+  <title>Entrega de control remoto | Clínica CES</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="delivery-page">
+  <!-- Contenedor principal de la pantalla de entrega. -->
+  <main class="delivery-shell">
+    <!-- Tarjeta que agrupa las dos columnas de consulta y resultado. -->
+    <section class="delivery-card" aria-labelledby="delivery-title">
+      <!-- Encabezado común a las dos columnas. -->
+      <header class="delivery-heading">
+        <h1 id="delivery-title" class="delivery-title">ENTREGA DE CONTROL REMOTO</h1>
+        <p class="delivery-subtitle">Consulta la habitación y registra la entrega.</p>
+      </header>
+
+      <div class="delivery-columns">
+        <!-- Columna izquierda: búsqueda y datos de entrada. -->
+        <div class="delivery-search-column">
+          <!-- El formulario envía la consulta al backend mediante POST. -->
+          <form class="delivery-form" action="/entrega_control" method="POST">
+            <!-- Habitación: admite valores como 301, 418 o UCE-1. -->
+            <label for="habitacion">Número de habitación</label>
+            <input id="habitacion" name="habitacion" type="text" value="{{ habitacion_ingresada }}" placeholder="Ejemplo: 301 o UCE-1" autocomplete="off" required>
+
+            <!-- Fecha opcional usada para calcular automáticamente los días. -->
+            <label for="fecha_inicio">Fecha de inicio del préstamo (opcional)</label>
+            <input id="fecha_inicio" name="fecha_inicio" type="date" value="{{ fecha_inicio_ingresada }}">
+
+            <!-- Días transcurridos: tarifa aplicada en Python: días por 3000. -->
+            <label for="dias">Días transcurridos</label>
+            <input id="dias" name="dias" type="number" value="{{ dias_ingresados }}" min="0" step="1" required>
+
+            <!-- Botón principal que ejecuta la búsqueda y el cálculo. -->
+            <button type="submit" class="delivery-button">CONSULTAR ENTREGA</button>
+          </form>
+
+          <!-- Mensaje de validación cuando la habitación no existe. -->
+          {% if error %}
+          <p class="delivery-message delivery-message-error" role="alert">{{ error }}</p>
+          {% endif %}
+
+          <!-- Botón con apariencia de control remoto para volver al inicio. -->
+          <a class="btn-control-volver" href="/" aria-label="Volver al inicio">&#8592; Volver al inicio</a>
+        </div>
+
+        <!-- Columna derecha: resumen de la entrega procesada por Flask. -->
+        <section class="delivery-result-column" aria-live="polite">
+          {% if resultado %}
+          <div class="delivery-result">
+            <h2>Resumen de entrega</h2>
+            <!-- Datos de ubicación y paciente. -->
+            <div class="delivery-detail-group">
+              <h3>Ubicación y paciente</h3>
+              <p><strong>Habitación:</strong> {{ resultado.habitacion }}</p>
+              <p><strong>Piso:</strong> {{ resultado.piso }}</p>
+              <p><strong>Paciente:</strong> {{ resultado.paciente }}</p>
+              <p><strong>Cédula:</strong> {{ resultado.cedula }}</p>
+            </div>
+            <!-- Detalles de servicio y cálculo de la tarifa. -->
+            <div class="delivery-detail-group">
+              <h3>Detalles del servicio</h3>
+              <p><strong>Marca del control:</strong> {{ resultado.marca }}</p>
+              <p><strong>Días transcurridos:</strong> {{ resultado.dias }}</p>
+              <p><strong>Fecha de entrega:</strong> {{ resultado.fecha_entrega }}</p>
+              <p><strong>Quién recibe:</strong> {{ resultado.recibe_control }}</p>
+            </div>
+            <!-- Total calculado como días transcurridos por PRECIO_DIARIO. -->
+            <p class="delivery-total"><strong>Total a pagar:</strong> ${{ '{:,.0f}'.format(resultado.total).replace(',', '.') }}</p>
+          </div>
+          {% else %}
+          <!-- Estado vacío: evita una columna derecha visualmente sin propósito. -->
+          <div class="delivery-empty-state">El resumen aparecerá aquí después de consultar una habitación.</div>
+          {% endif %}
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

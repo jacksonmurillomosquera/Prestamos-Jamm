@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gestión de préstamos de controles de TV de la Clínica CES.">
+  <title>Dashboard | Préstamos de Controles de TV</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="dashboard-page">
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="Menú principal">
+      <a class="sidebar-logo" href="#inicio" aria-label="Clínica CES, ir a inicio">
+        <img class="clinic-logo" src="img/Logo.png" alt="Logo de Clínica CES">
+        <span><strong>Clínica CES</strong><small>Salud con sentido humano</small></span>
+      </a>
+      <div class="sidebar-title"><span class="tv-mark" aria-hidden="true">▣</span><span>Préstamos de<br>Controles de TV</span></div>
+      <nav class="sidebar-nav">
+        <a class="nav-item is-active" href="#inicio" data-section="inicio"><span aria-hidden="true">⌂</span>Inicio</a>
+        <a class="nav-item" href="#buscar" data-section="buscar"><span aria-hidden="true">⌕</span>Buscar</a>
+        <a class="nav-item" href="#nuevo-prestamo" data-section="nuevo-prestamo"><span aria-hidden="true">＋</span>Nuevo Préstamo</a>
+        <a class="nav-item" href="#historial" data-section="historial"><span aria-hidden="true">▤</span>Historial de Préstamos</a>
+        <a class="nav-item" href="/traslado" data-section="traslado"><span aria-hidden="true">⇄</span>Traslado</a>
+        <a class="nav-item" href="#configuracion" data-section="configuracion"><span aria-hidden="true">⚙</span>Configuración</a>
+      </nav>
+      <div class="sidebar-footer"><span class="online-dot"></span><span>Estado del sistema</span><strong>v1.0.0</strong></div>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="topbar">
+        <div class="topbar-title"><span class="topbar-tv" aria-hidden="true">▣</span><div><strong>Préstamo de Controles de TV - Panel de Gestión</strong></div></div>
+        <div class="topbar-user"><span class="user-avatar">{{ usuario_nombre[0]|upper }}</span><span><strong>{{ usuario_nombre }}</strong><small>Ejecutivo de Cuenta</small></span><a class="dashboard-logout" href="/logout">Cerrar sesión</a></div>
+      </header>
+
+      <section class="dashboard-content" id="inicio" data-view="inicio">
+        <div class="page-heading"><div><p class="eyebrow">Jornada activa</p><h1>¡Hola, {{ usuario_nombre }}!</h1><p>Bienvenido al panel de préstamos de controles de TV.</p></div><button class="primary-action" id="focus-new-loan" type="button"><span aria-hidden="true">＋</span> Registrar préstamo</button></div>
+        <div class="stat-grid" aria-label="Estadísticas del día">
+          <article class="stat-card stat-blue"><span class="stat-icon">▤</span><div><small>Total de préstamos hoy</small><strong id="stat-today">12</strong><span class="stat-trend">↑ 8% vs. ayer</span></div></article>
+          <article class="stat-card stat-green"><span class="stat-icon">✓</span><div><small>Controles disponibles</small><strong id="stat-available">0</strong><span class="stat-trend">Listos para entregar</span></div></article>
+          <article class="stat-card stat-orange"><span class="stat-icon">◷</span><div><small>Controles en uso</small><strong id="stat-in-use">0</strong><span class="stat-trend">En habitaciones</span></div></article>
+          <article class="stat-card stat-red"><span class="stat-icon">!</span><div><small>Pendientes de devolución</small><strong id="stat-overdue">2</strong><span class="stat-trend">Requieren seguimiento</span></div></article>
+        </div>
+
+        <section class="content-panel placeholder-panel" id="buscar" data-view="buscar" aria-labelledby="search-title">
+          <div class="panel-heading"><div><p class="eyebrow">Consulta de prueba</p><h2 id="search-title">Buscar</h2></div></div>
+          <form id="search-form" class="search-form">
+            <label class="field-label" for="search-query">Número de habitación</label>
+            <div class="search-form-row"><input id="search-query" type="search" placeholder="Ingresa el número de habitación (ej. 307)" autocomplete="off" inputmode="numeric" required><button class="primary-action" type="submit">Buscar</button></div>
+          </form>
+          <div class="patient-result" id="patient-result" hidden aria-live="polite"></div>
+        </section>
+
+        <div class="dashboard-columns">
+          <section class="content-panel loan-panel" id="nuevo-prestamo" data-view="nuevo-prestamo" aria-labelledby="loan-title">
+            <div class="panel-heading"><div><p class="eyebrow">Registro rápido</p><h2 id="loan-title">Nuevo préstamo</h2></div><span class="required-note">* Campos obligatorios</span></div>
+            <form id="loan-form" class="loan-form-grid">
+              <div class="field-group"><label for="loan-document">Documento del usuario *</label><input id="loan-document" type="text" inputmode="numeric" placeholder="Ej. 10000001" required></div>
+              <div class="field-group"><label for="loan-patient">Nombre del usuario *</label><input id="loan-patient" type="text" placeholder="Nombre completo" required></div>
+              <div class="field-group"><label for="loan-room">Cama *</label><input id="loan-room" type="text" placeholder="Ej. 301-1" required></div>
+              <div class="field-group"><label for="loan-room-number">Habitación *</label><input id="loan-room-number" type="text" list="room-suggestions" placeholder="Ej. 301" required><datalist id="room-suggestions"></datalist></div>
+              <div class="field-group"><label for="loan-control">Control entregado *</label><select id="loan-control" required></select></div>
+              <div class="field-group"><label for="loan-borrower">Responsable de entrega</label><input id="loan-borrower" type="text" value="{{ usuario_nombre }}" required></div>
+              <div class="field-group"><label for="loan-start-date">Fecha de entrega *</label><input id="loan-start-date" type="date" required></div>
+              <div class="field-group"><label for="loan-end-date">Fecha de devolución *</label><input id="loan-end-date" type="date" required></div>
+              <div class="field-group"><label for="loan-days">Número de días</label><input id="loan-days" type="number" min="1" value="1" readonly></div>
+              <div class="field-group"><label for="loan-rate">Valor por día</label><input id="loan-rate" type="text" value="$3.000" readonly></div>
+              <div class="field-group total-field"><label for="loan-total">Valor total</label><input id="loan-total" type="text" value="$3.000" readonly></div>
+              <div class="form-actions"><button class="secondary-action" id="clear-loan" type="reset">Limpiar</button><button class="primary-action" type="submit">Guardar préstamo</button></div>
+            </form>
+          </section>
+          <aside class="content-panel day-summary"><div class="panel-heading"><div><p class="eyebrow">Resumen del día</p><h2>Actividad reciente</h2></div><span class="summary-date">Hoy</span></div><div class="summary-number"><strong id="summary-loans">12</strong><span>préstamos registrados</span></div><div class="summary-row"><span>Entregados</span><strong>8</strong></div><div class="summary-row"><span>Devueltos</span><strong>4</strong></div><div class="summary-row summary-warning"><span>Pendientes de devolución</span><strong id="summary-pending">6</strong></div><div class="progress-track"><span></span></div><p class="summary-footnote">67% de los controles entregados han sido devueltos.</p></aside>
+        </div>
+
+        <section class="content-panel recent-panel" id="historial" data-view="historial" aria-labelledby="recent-title"><div class="panel-heading"><div><p class="eyebrow">Seguimiento</p><h2 id="recent-title">Historial de Préstamos</h2></div><a class="view-all" href="#historial">Ver historial completo →</a></div><div class="table-wrap"><table><thead><tr><th>Número</th><th>Usuario</th><th>Documento</th><th>Cama</th><th>Habitación</th><th>Control</th><th>Fecha de entrega</th><th>Estado</th></tr></thead><tbody id="recent-loans"><tr><td>001</td><td><strong>María González</strong></td><td>10000001</td><td>301-1</td><td>301</td><td>CTRL-001</td><td>24 sep 2026</td><td><span class="table-status status-active">En uso</span></td></tr><tr><td>002</td><td><strong>Carlos Ramírez</strong></td><td>10000002</td><td>402-1</td><td>402</td><td>CTRL-002</td><td>24 sep 2026</td><td><span class="table-status status-active">En uso</span></td></tr><tr><td>003</td><td><strong>Laura Torres</strong></td><td>10000003</td><td>305-1</td><td>305</td><td>CTRL-006</td><td>23 sep 2026</td><td><span class="table-status status-returned">Devuelto</span></td></tr></tbody></table></div></section>
+        <section class="content-panel placeholder-panel" id="reportes" data-view="reportes"><h2>Reportes</h2><p>Préstamos del día, controles disponibles y valores recaudados de prueba.</p></section>
+        <section class="content-panel placeholder-panel" id="configuracion" data-view="configuracion"><h2>Configuración</h2><p>Esta sección estará disponible para usuarios, controles, habitaciones, precios y permisos.</p></section>
+      </section>
+    </main>
+  </div>
+  <div class="sr-only" id="control-grid"></div><div class="sr-only" id="active-loans"></div><span id="availability-count"></span><span id="inventory-summary"></span><span id="loans-summary"></span><p id="empty-results"></p>
+  <script src="dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Inicio de sesión para el sistema de préstamo de controles de la clínica.">
+  <title>Préstamo de Controles | Clínica CES</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="{% if error %}login-error-page{% endif %}" style="--login-background: url('{{ url_for('static', filename=imagen_pingui) }}');">
+  <main class="login-shell{% if error %} login-error-shell{% endif %}">
+    {% if error %}
+    <section class="login-card login-error-card" role="alert" aria-labelledby="login-error-title">
+      <div class="login-card__header"><h1 id="login-error-title">ERROR DE ACCESO</h1></div>
+      <p>{{ error }}</p>
+      <a class="btn-login" href="{{ url_for('index') }}">Volver a intentarlo</a>
+    </section>
+    {% else %}
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="login-card__header">
+        <h1 id="login-title">PRÉSTAMO DE CONTROLES</h1>
+      </div>
+
+      <form class="login-form" id="login-form" action="{{ url_for('login_hc') }}" method="POST" autocomplete="off">
+        <div class="form-field">
+          <label for="usuario">Usuario de Historia Clínica</label>
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="8" r="3.5"></circle>
+              <path d="M5 20c.7-3.2 3.1-5 7-5s6.3 1.8 7 5"></path>
+            </svg>
+            <input type="text" id="usuario" name="usuario_hc" autocomplete="off" placeholder="Usuario" required>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="contrasena">Contraseña de Historia Clínica</label>
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+              <circle cx="12" cy="15" r="1"></circle>
+            </svg>
+            <input type="password" id="contrasena" name="password" autocomplete="new-password" placeholder="Ingresa tu contraseña" required>
+          </div>
+        </div>
+
+        <div class="login-actions">
+          <button type="submit" class="btn-login" id="login-submit">Entrar</button>
+        </div>
+      </form>
+    </section>
+    {% endif %}
+  </main>
+
+</body>
+</html>

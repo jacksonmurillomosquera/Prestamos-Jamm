@@ -1,0 +1,10 @@
+{% extends "dashboard_base.html" %}
+{% set active_page = 'reportes' %}
+{% block title %}Reportes | Préstamos de Controles de TV{% endblock %}
+{% block content %}
+<section class="dashboard-content page-only" aria-labelledby="reports-title">
+  <div class="page-heading"><div><p class="eyebrow">Información de prueba</p><h1 id="reports-title">Reportes</h1><p>Resumen de la operación de controles de TV.</p></div></div>
+  <div class="stat-grid"><article class="stat-card stat-blue"><span class="stat-icon">▤</span><div><small>Préstamos realizados</small><strong>12</strong><span class="stat-trend">Hoy</span></div></article><article class="stat-card stat-green"><span class="stat-icon">✓</span><div><small>Controles disponibles</small><strong>146</strong><span class="stat-trend">En inventario</span></div></article><article class="stat-card stat-orange"><span class="stat-icon">◷</span><div><small>Controles en uso</small><strong>2</strong><span class="stat-trend">Asignados</span></div></article><article class="stat-card stat-red"><span class="stat-icon">!</span><div><small>Valores recaudados</small><strong>$36.000</strong><span class="stat-trend">Hoy</span></div></article></div>
+  <section class="content-panel standalone-panel"><div class="panel-heading"><h2>Próximamente</h2></div><p class="muted-copy">Aquí se podrán consultar estadísticas por día y por mes.</p></section>
+</section>
+{% endblock %}

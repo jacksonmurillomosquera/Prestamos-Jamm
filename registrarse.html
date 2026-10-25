@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Registro de usuario de prueba para el sistema de préstamo de controles.">
+  <title>Registrarse | Préstamo de Controles</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="recovery-page">
+  <main class="recovery-shell">
+    <section class="recovery-card" aria-labelledby="register-title">
+      <div class="recovery-heading"><h1 class="titulo-recuperacion" id="register-title">Crear usuario de prueba</h1><p class="subtitulo-recuperacion">Completa tus datos institucionales para registrarte.</p></div>
+      {% if mensaje %}<div class="recovery-status recovery-status-success is-visible{% if es_error %} is-error{% endif %}" role="status">{{ mensaje }}</div>{% endif %}
+      {% if not registrado %}
+      <form class="login-form recovery-form" action="{{ url_for('registrarse') }}" method="POST">
+        <div class="form-field"><label for="usuario">Usuario</label><div class="input-wrap"><input type="text" id="usuario" name="usuario" autocomplete="username" placeholder="Elige un usuario" required></div></div>
+        <div class="form-field"><label for="cedula">Cédula de identidad</label><div class="input-wrap"><input type="text" id="cedula" name="cedula" inputmode="numeric" placeholder="Número de cédula" required></div></div>
+        <div class="form-field"><label for="correo">Correo institucional</label><div class="input-wrap"><input type="email" id="correo" name="correo" autocomplete="email" placeholder="nombre@clinica.edu" required></div></div>
+        <div class="form-field"><label for="clave">Clave</label><div class="input-wrap"><input type="password" id="clave" name="clave" autocomplete="new-password" minlength="8" placeholder="Mínimo 8 caracteres" required></div></div>
+        <button type="submit" class="btn-login">Registrarse</button>
+      </form>
+      {% endif %}
+      <a class="btn-volver-inicio" href="{{ url_for('index') }}">VOLVER AL INICIO</a>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{% extends "dashboard_base.html" %}
+{% set active_page = 'traslado' %}
+{% block title %}Registro de traslado del paciente y seguimiento a los controles | Pr&#233;stamos de Controles de TV{% endblock %}
+{% block content %}
+<section class="dashboard-content page-only transfer-page" aria-labelledby="transfer-title">
+  <div class="page-heading page-heading-centered"><div><h1 id="transfer-title">Registro de traslado del paciente y seguimiento a los controles</h1></div></div>
+  <section class="content-panel standalone-panel transfer-workflow">
+    <form id="transfer-form" class="transfer-form" novalidate>
+      <fieldset class="workflow-section transfer-patient-section">
+        <legend>Buscar paciente</legend>
+        <div class="transfer-patient-row">
+          <div class="field-group transfer-search-mode"><label for="transfer-search-type">Buscar por</label><select id="transfer-search-type"><option value="identificacion">N&#250;mero de Identificaci&#243;n</option><option value="habitacion">N&#250;mero de Habitaci&#243;n</option></select></div><div class="field-group"><label id="transfer-query-label" for="transfer-patient-document">N&#250;mero de Identificaci&#243;n</label><input id="transfer-patient-document" type="search" autocomplete="off" required placeholder="Ingresa el documento"></div>
+          <button id="transfer-lookup" class="primary-action" type="button">Buscar</button>
+          <div id="transfer-patient-result" class="transfer-patient-result" hidden><strong id="transfer-patient-name"></strong><span id="transfer-patient-identity"></span></div><div id="transfer-room-choices" class="transfer-room-choices" hidden></div>
+        </div>
+        <div id="transfer-status" class="workflow-status" role="status" aria-live="polite" hidden></div>
+      </fieldset>
+      <fieldset class="workflow-section transfer-info-section">
+        <legend class="centered-legend">Informaci&#243;n de traslado</legend>
+        <div class="section-fields transfer-grid">
+          <div class="field-group"><label for="transfer-origin">Habitaci&#243;n actual</label><input id="transfer-origin" readonly required placeholder="Se completa al validar al paciente"></div>
+          <div class="field-group"><label for="transfer-destination">Habitaci&#243;n de destino</label><input id="transfer-destination" autocomplete="off" required disabled placeholder="Ej. 410"></div>
+          <select id="transfer-destination-bed" hidden><option value="">Primero ingresa una habitaci&#243;n</option></select>
+
+          <input id="transfer-responsible" type="hidden" value="{{ usuario_nombre }}">
+        </div>
+      </fieldset>
+      <fieldset class="workflow-section transfer-old-section">
+        <legend class="transfer-section-title">Novedad del control anterior</legend>
+        <div class="section-fields transfer-grid">
+          <div class="field-group"><label for="transfer-current-status">Control anterior</label><input id="transfer-current-status" readonly value="Sin pr&#233;stamo activo"></div>
+          <div class="field-group"><label for="transfer-disposition">Novedad</label><select id="transfer-disposition" required><option value="">Selecciona una opci&#243;n</option><option value="returned">Entreg&#243; control</option><option value="pending">No entreg&#243; control</option></select></div>
+          <div class="field-group"><label for="transfer-old-recipient">Persona que entrega</label><input id="transfer-old-recipient" placeholder="Nombre de quien entrega el control"></div>
+          <div class="field-group"><label for="transfer-old-relationship">Parentesco</label><select id="transfer-old-relationship"><option value="">Selecciona el parentesco</option><option value="Paciente">Paciente</option><option value="C&#243;nyuge">C&#243;nyuge</option><option value="Hijo/a">Hijo / Hija</option><option value="Familiar">Familiar</option><option value="Otro">Otro</option></select></div>
+        </div>
+      </fieldset>
+      <fieldset class="workflow-section transfer-destination-section">
+        <legend>Control para la habitaci&#243;n de destino</legend>
+        <div class="section-fields transfer-grid">
+          <div class="field-group"><label for="transfer-destination-brand-display">Marca del control requerido</label><input id="transfer-destination-brand-display" readonly placeholder="Se completa al ingresar la habitaci&#243;n de destino"></div>
+          <select id="transfer-new-control" hidden disabled><option value="">Selecciona una cama de destino</option></select>
+          <div class="field-group"><label for="transfer-new-recipient">Persona que recibe el control</label><input id="transfer-new-recipient" value="{{ usuario_nombre }}" placeholder="Nombre de quien recibe"></div>
+          <div class="field-group"><label for="transfer-new-relationship">Parentesco</label><select id="transfer-new-relationship"><option value="">Selecciona el parentesco</option><option value="Paciente">Paciente</option><option value="C&#243;nyuge">C&#243;nyuge</option><option value="Hijo/a">Hijo / Hija</option><option value="Familiar">Familiar</option><option value="Otro">Otro</option></select></div>
+          <input id="transfer-destination-brand" type="hidden"><input id="transfer-new-date" type="hidden">
+        </div>
+        <p id="transfer-destination-status" class="inline-status" role="status" aria-live="polite"></p>
+      </fieldset>
+      <div class="form-actions"><button id="transfer-submit" class="primary-action" type="submit" disabled>Registrar traslado</button><a class="secondary-action form-return" href="{{ url_for('dashboard') }}">Regresar al dashboard</a></div>
+    </form>
+  </section>
+</section>
+{% endblock %}

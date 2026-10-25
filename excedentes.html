@@ -1,0 +1,22 @@
+{% extends "dashboard_base.html" %}
+{% set active_page = 'excedentes' %}
+{% block title %}Excedentes de Habitación | Préstamos de Controles de TV{% endblock %}
+{% block content %}
+<section class="dashboard-content page-only" aria-labelledby="excess-title">
+  <div class="page-heading"><div><p class="eyebrow">Tarifas institucionales</p><h1 id="excess-title">Excedentes de Habitación</h1><p>Rangos y valores aplicables a habitaciones excedentes.</p></div></div>
+  <section class="inventory-summary" aria-label="Inventario por torre y piso">
+    {% for torre in resumen_torres %}
+    <article class="inventory-count"><strong>{{ torre.torre }}</strong><span>Piso {{ torre.piso }}</span><b>{% if torre.total_habitaciones is not none %}{{ torre.total_habitaciones }}{% else %}Pendiente{% endif %}</b><small>habitaciones · {{ torre.total_controles if torre.total_controles is not none else 'sin listado' }} controles</small></article>
+    {% endfor %}
+  </section>
+  <section class="content-panel standalone-panel excess-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Cobros por rango</p><h2>Tabla de excedentes</h2></div></div>
+    <div class="table-wrap"><table class="excess-table"><thead><tr><th>Categoría</th><th>Habitaciones excedentes</th><th>Valor</th></tr></thead><tbody>
+      {% for categoria in excedentes %}
+      <tr><td><strong>Categoría {{ categoria.categoria }}</strong></td><td>{{ categoria.rangos|join(', ') }}</td><td><strong>${{ '{:,.0f}'.format(categoria.valor).replace(',', '.') }}</strong></td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  </section>
+  <div class="subpage-actions"><a class="secondary-action form-return" href="{{ url_for('dashboard') }}">Regresar a la página principal</a></div>
+</section>
+{% endblock %}

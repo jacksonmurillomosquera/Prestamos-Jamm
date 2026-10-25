@@ -1,0 +1,20 @@
+{% extends "dashboard_base.html" %}
+{% set active_page = 'buscar' %}
+{% block title %}Buscar | Préstamos de Controles de TV{% endblock %}
+{% block content %}
+<section class="dashboard-content page-only" aria-labelledby="search-title">
+  <div class="page-heading"><div><p class="eyebrow">Consulta institucional</p><h1 id="search-title">Buscar paciente / usuario</h1><p>Consulta los datos del paciente por identificación o cama.</p></div></div>
+  <section class="content-panel standalone-panel">
+    <div class="patient-search-modes" role="group" aria-label="Tipo de búsqueda">
+      <button class="patient-search-mode is-selected" type="button" data-search-mode="identificacion" aria-pressed="true"><span class="mode-index">01</span><span><strong>Por identificación</strong><small>Cédula o documento</small></span></button>
+      <button class="patient-search-mode" type="button" data-search-mode="cama" aria-pressed="false"><span class="mode-index">02</span><span><strong>Por cama</strong><small>Habitación asignada</small></span></button>
+    </div>
+    <form id="search-form" class="search-form">
+      <label class="field-label" id="search-label" for="search-query">Número de identificación</label>
+      <div class="search-form-row"><input id="search-query" type="search" placeholder="Escribe el número de identificación" autocomplete="off" inputmode="numeric" required><button class="primary-action" type="submit">Buscar paciente</button><button class="secondary-action" id="clear-search" type="button">Limpiar</button></div>
+    </form>
+    <div class="patient-result" id="patient-result" hidden aria-live="polite"></div>
+    <div class="subpage-actions"><a class="secondary-action form-return" href="{{ url_for('dashboard') }}">Regresar a la página principal</a></div>
+  </section>
+</section>
+{% endblock %}

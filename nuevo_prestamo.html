@@ -1,0 +1,21 @@
+{% extends "dashboard_base.html" %}
+{% set active_page = 'nuevo-prestamo' %}
+{% block title %}Nuevo Préstamo | Préstamos de Controles de TV{% endblock %}
+{% block content %}
+<section class="dashboard-content page-only" aria-labelledby="loan-title">
+  <div class="page-heading"><div><p class="eyebrow">Registro de prueba</p><h1 id="loan-title">Nuevo préstamo</h1><p>Registra la entrega de un control de TV.</p></div></div>
+  <section class="content-panel standalone-panel"><div class="panel-heading"><h2>Datos del préstamo</h2><span class="required-note">* Campos obligatorios</span></div>
+    <form id="loan-form" class="loan-form-grid">
+      <div class="field-group"><label for="loan-document">Documento *</label><input id="loan-document" type="text" value="{{ request.args.get('documento', '') }}" placeholder="Ej. 10000001" required></div>
+      <div class="field-group"><label for="loan-patient">Nombre *</label><input id="loan-patient" type="text" value="{{ request.args.get('nombre', '') }}" placeholder="Nombre completo" required></div>
+      <div class="field-group"><label for="loan-room-number">Habitación *</label><input id="loan-room-number" type="text" list="room-suggestions" value="{{ request.args.get('habitacion', '') }}" placeholder="Ej. 301" required><datalist id="room-suggestions"></datalist></div>
+      <div class="field-group"><label for="loan-recipient">Quién recibe el control *</label><input id="loan-recipient" type="text" placeholder="Nombre y/o rol en la habitación" required></div>
+      <div class="field-group"><label for="loan-control">Control *</label><select id="loan-control" required></select><small id="loan-required-brand" class="field-hint" role="status">Selecciona una habitación para consultar la marca requerida.</small></div>
+      <label class="confirm-control"><input id="loan-confirm-bed" type="checkbox" required> Confirmo que la cama real elegida corresponde al paciente. </label>
+      <label class="confirm-control"><input id="loan-confirm-control" type="checkbox" required> Confirmo que identifiqu&#233; el control f&#237;sico que voy a entregar.</label>
+      <div class="field-group"><label for="loan-start-date">Fecha de entrega *</label><input id="loan-start-date" type="date" required></div>
+      <div class="form-actions"><button class="primary-action" type="submit">Guardar préstamo</button><button class="secondary-action" type="reset">Limpiar</button><a class="secondary-action form-return" href="{{ url_for('dashboard') }}">Regresar a la página principal</a></div>
+    </form>
+  </section>
+</section>
+{% endblock %}

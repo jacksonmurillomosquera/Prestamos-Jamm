@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Recuperación de acceso al sistema de préstamo de controles.">
+  <title>Recuperar acceso | Préstamo de Controles</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="recovery-page{% if credenciales %} recovery-success-page{% endif %}" style="--recovery-background: url('{{ url_for('static', filename=imagen_pingui) }}');">
+  <main class="recovery-shell">
+    <section class="recovery-card" aria-labelledby="recovery-title">
+      {% if not credenciales and not verificacion_pendiente %}
+      <div class="recovery-heading">
+        <div>
+          <h1 class="titulo-recuperacion" id="recovery-title">Verificar identidad</h1>
+          <p class="subtitulo-recuperacion">Ingresa tu usuario de Historia Clínica y tu cédula.</p>
+        </div>
+      </div>
+
+      <form class="login-form recovery-form" action="/recuperar" method="POST">
+        <input type="hidden" name="accion" value="verificar">
+        <div class="form-field">
+          <label for="usuario">Usuario de Historia</label>
+          <div class="input-wrap">
+            <input type="text" id="usuario" name="usuario" autocomplete="username" placeholder="Escribe tu usuario de Historia" required>
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="cedula">Cédula de identidad</label>
+          <div class="input-wrap">
+            <input type="text" id="cedula" name="cedula" inputmode="numeric" autocomplete="off" placeholder="Escribe tu número de cédula" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-login">Verificar</button>
+      </form>
+      {% endif %}
+
+      {% if verificacion_pendiente and not credenciales %}
+      <div class="recovery-heading">
+        <h1 class="titulo-recuperacion" id="recovery-title">¿Eres tú?</h1>
+        <p class="subtitulo-recuperacion">Enviamos una notificación simulada a <strong>{{ correo_destino }}</strong>.</p>
+      </div>
+      <form class="login-form recovery-form" action="/recuperar" method="POST">
+        <input type="hidden" name="accion" value="confirmar">
+        <button type="submit" name="confirmacion" value="si" class="btn-login">SÍ</button>
+        <button type="submit" name="confirmacion" value="no" class="secondary-action recovery-deny">No soy yo</button>
+      </form>
+      {% endif %}
+
+      {% if mensaje %}
+      {% if not credenciales and not verificacion_pendiente %}
+      <div class="recovery-status recovery-status-success is-visible{% if es_error %} is-error{% endif %}" role="status" aria-live="polite">
+        {{ mensaje }}
+      </div>
+      {% endif %}
+      {% endif %}
+
+      {% if credenciales %}
+      <div class="recovery-heading"><h1 class="titulo-recuperacion" id="recovery-title">¡Datos Recuperados!</h1><p class="subtitulo-recuperacion">Ya puedes iniciar sesión con tus credenciales.</p></div>
+      <div class="recovery-status recovery-status-success is-visible" role="status" aria-live="polite">
+        <span class="credencial-linea">Usuario de Historia Clínica: <strong id="recovered-username">{{ credenciales.usuario }}</strong></span>
+        <span class="credencial-linea">Clave: <strong id="recovered-password">{{ credenciales.contrasena }}</strong></span>
+      </div>
+      <div class="recovery-success-actions"><button class="secondary-action" id="copy-credentials" type="button">Copiar credenciales</button><a class="btn-login" href="{{ url_for('index') }}">Ir al inicio de sesión</a></div>
+      <p class="recovery-note" id="copy-feedback" aria-live="polite"></p>
+      {% endif %}
+
+      {% if not credenciales %}<a class="btn-volver-inicio" href="/">VOLVER AL INICIO</a>{% endif %}
+    </section>
+  </main>
+  <script>
+    document.querySelector('#copy-credentials')?.addEventListener('click', async () => {
+      const username = document.querySelector('#recovered-username').textContent;
+      const password = document.querySelector('#recovered-password').textContent;
+      await navigator.clipboard.writeText(`Usuario: ${username}\nClave: ${password}`);
+      document.querySelector('#copy-feedback').textContent = 'Credenciales copiadas.';
+    });
+  </script>
+</body>
+</html>
