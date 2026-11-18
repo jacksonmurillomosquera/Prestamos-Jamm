@@ -1,0 +1,305 @@
+body.dashboard-home-page {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: #17364d;
+  background: #0b2d49;
+}
+
+body.dashboard-home-page::before {
+  display: none;
+}
+
+.dashboard-home-page .app-layout-single,
+.dashboard-home-page .dashboard-main-single {
+  width: 100%;
+  min-height: 100vh;
+  height: auto;
+}
+
+.dashboard-home-page .dashboard-main-single {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-home-page .topbar.topbar-single {
+  flex: 0 0 68px;
+  color: #f4fbff;
+  background: #082944;
+  border-bottom: 1px solid rgba(198, 225, 240, 0.2);
+}
+
+.dashboard-home-page .topbar-user strong,
+.dashboard-home-page .topbar-brand span {
+  color: #f4fbff;
+}
+
+.dashboard-home-page .topbar-user small {
+  color: #b7cfdf;
+}
+
+.dashboard-home-page .dashboard-logout,
+.dashboard-home-page .topbar-brand {
+  color: #d7f4ff;
+}
+
+.dashboard-home-page .dashboard-content.dashboard-home {
+  display: grid;
+  grid-template-rows: minmax(210px, auto) auto auto;
+  gap: 18px;
+  width: min(1120px, calc(100% - 32px));
+  max-width: 1120px;
+  height: auto;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 22px 0 28px;
+  overflow: visible;
+}
+
+.dashboard-home-page .welcome-banner {
+  display: flex;
+  align-items: center;
+  min-height: 220px;
+  margin: 0;
+  padding: 24px;
+  overflow: hidden;
+  border: 1px solid #d5e6ef;
+  border-radius: 10px;
+  background-color: #e8f4fa;
+  background-image: url('../img/para%20el%20inicio.jpg');
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: auto 100%;
+}
+
+.dashboard-home-page .welcome-copy {
+  width: min(52%, 530px);
+  padding: 18px 20px;
+  border-radius: 8px;
+  color: #12334d;
+  background: rgba(245, 251, 254, 0.94);
+}
+
+.dashboard-home-page .welcome-banner h1 {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 10px;
+  color: #12334d;
+  font-size: 30px;
+  line-height: 1.12;
+}
+
+.dashboard-home-page .welcome-banner h1 span {
+  display: block;
+}
+
+.dashboard-home-page .welcome-banner h3 {
+  margin: 0 0 8px;
+  color: #164c70;
+  font-size: 17px;
+}
+
+.dashboard-home-page .welcome-banner p {
+  margin: 0;
+  color: #315a73;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.dashboard-home-page .home-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-home-page .quick-action {
+  width: auto;
+  height: 126px;
+  min-height: 0;
+  padding: 14px;
+  border: 1px solid rgba(197, 226, 242, 0.28);
+  border-radius: 8px;
+  color: #f4fbff;
+  background: #104568;
+  box-shadow: 0 7px 18px rgba(0, 15, 29, 0.16);
+}
+
+.dashboard-home-page .quick-action::before {
+  width: 3px;
+  background: #42c7d7;
+}
+
+.dashboard-home-page .quick-action-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  color: #8ceaf0;
+  background: #1b5979;
+}
+
+.dashboard-home-page .quick-action strong {
+  color: #f4fbff;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.dashboard-home-page .quick-action small {
+  color: #c4dbe8;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dashboard-home-page .home-search-content {
+  min-width: 0;
+}
+
+.dashboard-home-page .home-patient-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.dashboard-home-page .home-patient-search input,
+.dashboard-home-page .home-patient-search .primary-action {
+  min-width: 0;
+  min-height: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
+.dashboard-home-page .home-patient-search input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #c5dbe7;
+  border-radius: 5px;
+  color: #17364d;
+  background: #f8fcfe;
+}
+
+.dashboard-home-page .home-patient-search .primary-action {
+  padding: 6px 10px;
+  border-radius: 5px;
+  color: #07314c;
+  background: #8ceaf0;
+}
+
+.dashboard-home-page .home-metrics {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-home-page .home-metrics-heading {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+}
+
+.dashboard-home-page .home-metrics-heading h2 {
+  margin: 0;
+  color: #f4fbff;
+  font-size: 18px;
+}
+
+.dashboard-home-page .home-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.dashboard-home-page .home-stat-grid .stat-card,
+.dashboard-home-page .home-stat-grid .quick-action {
+  width: 100%;
+  height: auto;
+  min-height: 108px;
+  padding: 14px;
+  border: 1px solid rgba(197, 226, 242, 0.28);
+  border-top: 3px solid #42c7d7;
+  border-radius: 8px;
+  color: #f4fbff;
+  background: #104568;
+  box-shadow: 0 7px 18px rgba(0, 15, 29, 0.16);
+}
+
+.dashboard-home-page .home-stat-grid .stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.dashboard-home-page .home-stat-grid .stat-icon {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  color: #8ceaf0;
+  background: #1b5979;
+}
+
+.dashboard-home-page .home-stat-grid .stat-card small,
+.dashboard-home-page .home-stat-grid .stat-trend {
+  color: #c4dbe8;
+  font-size: 12px;
+}
+
+.dashboard-home-page .home-stat-grid .stat-card strong {
+  display: block;
+  margin: 4px 0;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  transform: none;
+}
+
+.dashboard-home-page .home-reentry-bottom {
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (max-width: 1050px) {
+  .dashboard-home-page .home-quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-home-page .dashboard-content.dashboard-home {
+    width: calc(100% - 24px);
+    gap: 14px;
+    padding: 14px 0 22px;
+  }
+
+  .dashboard-home-page .welcome-banner {
+    min-height: 320px;
+    align-items: flex-start;
+    padding: 14px;
+    background-position: right bottom;
+    background-size: auto 72%;
+  }
+
+  .dashboard-home-page .welcome-copy {
+    width: min(100%, 430px);
+    padding: 14px;
+  }
+
+  .dashboard-home-page .welcome-banner h1 {
+    font-size: 26px;
+  }
+
+  .dashboard-home-page .welcome-banner p {
+    font-size: 13px;
+  }
+
+  .dashboard-home-page .home-quick-actions,
+  .dashboard-home-page .home-stat-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-home-page .quick-action {
+    height: auto;
+    min-height: 112px;
+  }
+}

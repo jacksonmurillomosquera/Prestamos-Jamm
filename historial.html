@@ -1,23 +1,68 @@
 {% extends "dashboard_base.html" %}
 {% set active_page = 'historial' %}
-{% block title %}Historial | Préstamos de Controles de TV{% endblock %}
+{% block title %}Generar Cobro | Préstamos de Controles de TV{% endblock %}
 {% block content %}
-<section class="dashboard-content page-only" aria-labelledby="history-title">
-  <div class="page-heading history-page-heading"><div><h1 id="history-title">Historial de préstamos</h1><p>Aquí puedes ver la entrega y las devoluciones de los controles</p></div></div>
-  <section class="content-panel standalone-panel table-panel">
-    <div class="panel-heading"><h2>Préstamos registrados</h2><button class="secondary-action" id="refresh-history" type="button">Actualizar</button></div>
-    <div id="history-status" class="workflow-status" role="status" aria-live="polite">Consultando historial...</div>
-    <div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Documento</th><th>Ubicación actual</th><th>Control</th><th>Entrega</th><th>Devolución</th><th>Valor</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="history-rows"></tbody></table></div>
-    <nav class="history-pagination" aria-label="Paginación del historial"><button class="secondary-action" id="history-previous" type="button" disabled>Anterior</button><span id="history-page-label" aria-live="polite">Página 1</span><button class="secondary-action" id="history-next" type="button" disabled>Siguiente</button></nav>
-  </section>
-  <dialog class="workflow-modal history-return-modal" id="history-return-modal" aria-labelledby="history-return-title">
-    <form id="history-return-form">
-      <header class="workflow-modal-header"><h2 id="history-return-title">Registrar devolución</h2></header>
-      <p>Confirma quién entrega físicamente el control.</p>
-      <label for="history-return-recipient">Nombre de quien devuelve</label>
-      <input id="history-return-recipient" name="recibe" required autocomplete="name">
-      <div class="modal-actions"><button class="secondary-action" id="history-return-back" type="button">Regresar</button><button class="primary-action" type="submit">Confirmar devolución</button></div>
+<section class="dashboard-content page-only loan-history-page" aria-labelledby="history-title">
+  <div class="page-heading history-page-heading"><div><h1 id="history-title">Generar Cobro</h1><p>Prepara el resumen del servicio y genera el comprobante para el ejecutivo.</p></div></div>
+  <section class="content-panel standalone-panel history-search-panel" aria-labelledby="history-search-title">
+    <h2 id="history-search-title">Buscar paciente</h2>
+    <form id="history-search-form" class="history-search-form">
+      <div class="field-group">
+        <label for="history-search-type">Buscar por</label>
+        <select id="history-search-type">
+          <option value="identificacion">Número de Identificación</option>
+          <option value="habitacion">Número de Habitación / Cama</option>
+        </select>
+      </div>
+      <div class="field-group history-query-field">
+        <label id="history-query-label" for="history-query">Número de Identificación</label>
+        <input id="history-query" type="search" autocomplete="off" required placeholder="Ingresa el documento">
+      </div>
+      <button id="history-search-button" class="primary-action" type="submit">Buscar</button>
     </form>
+    <div id="history-search-status" class="workflow-status" role="status" aria-live="polite" hidden></div>
+    <div id="history-patient-choices" class="history-patient-choices" aria-label="Pacientes encontrados" hidden></div>
+    <div class="subpage-actions"><a class="secondary-action form-return" href="{{ url_for('dashboard') }}">Regresar al dashboard</a></div>
+  </section>
+  <dialog class="workflow-modal history-patient-modal" id="history-patient-modal" aria-labelledby="history-modal-title">
+    <header class="workflow-modal-header workflow-modal-header-centered">
+      <h2 id="history-modal-title">Resumen de cobro</h2>
+      <button class="modal-close" id="history-modal-close" type="button" aria-label="Cerrar detalle">×</button>
+    </header>
+    <section class="history-patient-summary" aria-label="Datos del paciente">
+      <p class="eyebrow">Paciente</p>
+      <h3 id="history-patient-name">—</h3>
+      <p id="history-patient-document" class="history-patient-document"></p>
+    </section>
+    <p id="history-loan-status" class="history-loan-status" role="status"></p>
+    <dl class="history-loan-details">
+      <div><dt>Ubicación actual</dt><dd id="history-location">—</dd></div>
+      <div><dt>Marca del control TV</dt><dd id="history-brand">—</dd></div>
+      <div><dt>Préstamo desde</dt><dd id="history-start-date">—</dd></div>
+      <div><dt>Corte del cobro</dt><dd id="history-end-date">—</dd></div>
+      <div class="history-value-detail"><dt>Días de servicio</dt><dd id="history-service-days">—</dd></div>
+      <div class="history-total-detail"><dt>Total a pagar</dt><dd id="history-total">—</dd></div>
+    </dl>
+    <form id="history-authorization-form" class="history-authorization-form">
+      <fieldset class="history-service-used">
+        <legend>¿Utilizó el servicio?</legend>
+        <label><input type="radio" name="history-service-used" value="si" required> Sí</label>
+        <label><input type="radio" name="history-service-used" value="no" required> No</label>
+      </fieldset>
+      <p id="history-authorization-status" class="history-return-status" role="status" aria-live="polite" hidden></p>
+    </form>
+    <div class="history-invoice-actions">
+      <button id="history-generate-invoice" class="primary-action" type="button" disabled>Generar factura</button>
+      <a id="history-return-dashboard" class="secondary-action history-dashboard-action" href="{{ url_for('dashboard') }}" hidden>Volver al dashboard</a>
+    </div>
+    <form id="history-loan-return-form" class="history-loan-return-form" hidden>
+      <div class="field-group">
+        <label for="history-return-recipient">Persona que entrega físicamente el control</label>
+        <input id="history-return-recipient" name="recibe" autocomplete="name" required placeholder="Nombre de quien devuelve el control">
+      </div>
+      <button id="history-return-button" class="primary-action" type="submit">Devolver control</button>
+    </form>
+    <p id="history-return-status" class="history-return-status" role="status" aria-live="polite" hidden></p>
   </dialog>
 </section>
 {% endblock %}

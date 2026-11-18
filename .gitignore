@@ -7,3 +7,10 @@ __pycache__/
 .venv-flask/
 venv/
 flask*.log
+# Datos locales: las bases existentes rastreadas deben retirarse del índice
+# por separado; estas reglas evitan agregar nuevas copias por accidente.
+*.sqlite3
+*.sqlite
+*.db
+# Respaldos empaquetados: revisar y manejar fuera del repositorio.
+respaldo_*.zip

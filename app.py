@@ -226,6 +226,12 @@ def _catalog_location(connection, code):
     return _local_location(connection, code), "sqlite_local"
 
 
+def _canonical_transfer_location(value):
+    code = re.sub(r"\s+", " ", str(value or "").strip().upper())
+    compact_bed = re.fullmatch(r"([0-9]{3})([0-9])", code)
+    return f"{compact_bed.group(1)}-{compact_bed.group(2)}" if compact_bed else code
+
+
 def ensure_local_inventory():
     with get_local_db_connection() as connection:
         connection.execute(
@@ -292,6 +298,30 @@ def ensure_local_inventory():
                 FOREIGN KEY(control_id) REFERENCES Controles(id)
             )"""
         )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS AutorizacionesSalida (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                documento TEXT NOT NULL,
+                nombre TEXT NOT NULL,
+                ubicacion TEXT,
+                exoneracion_categoria TEXT NOT NULL,
+                tipo_autorizacion TEXT NOT NULL DEFAULT 'salida_exenta',
+                uso_servicio INTEGER NOT NULL DEFAULT 0,
+                prestamo_id INTEGER,
+                autorizado_at TEXT NOT NULL,
+                autorizado_por TEXT NOT NULL
+            )"""
+        )
+        authorization_columns = {row[1] for row in connection.execute("PRAGMA table_info(AutorizacionesSalida)")}
+        for name, data_type in {
+            "tipo_autorizacion": "TEXT NOT NULL DEFAULT 'salida_exenta'",
+            "uso_servicio": "INTEGER NOT NULL DEFAULT 0",
+            "prestamo_id": "INTEGER",
+            "valor_autorizado": "INTEGER NOT NULL DEFAULT 0",
+            "dias_cobrados": "INTEGER NOT NULL DEFAULT 0",
+        }.items():
+            if name not in authorization_columns:
+                connection.execute(f"ALTER TABLE AutorizacionesSalida ADD COLUMN {name} {data_type}")
 
         # Additive migrations preserve existing records and keep startup idempotent.
         control_columns = {row[1] for row in connection.execute("PRAGMA table_info(Controles)")}
@@ -306,6 +336,8 @@ def ensure_local_inventory():
             "responsable_entrega": "TEXT",
             "recibe_devolucion": "TEXT",
             "responsable_devolucion": "TEXT",
+            "salida_autorizada_at": "TEXT",
+            "salida_autorizada_por": "TEXT",
             "horas_cobradas": "REAL NOT NULL DEFAULT 0",
             "confirmacion_cama": "INTEGER NOT NULL DEFAULT 0",
             "confirmacion_fisica": "INTEGER NOT NULL DEFAULT 0",
@@ -676,7 +708,18 @@ def render_dashboard_page(template_name):
 
     usuario_nombre = current_user_display_name()
     active_page = template_name.removeprefix("dashboard_").removesuffix(".html").replace("_", "-")
-    return render_template(template_name, usuario_nombre=usuario_nombre, active_page=active_page)
+    context = {"usuario_nombre": usuario_nombre, "active_page": active_page}
+    if template_name == "dashboard_inicio.html":
+        with get_local_db_connection() as connection:
+            rows = connection.execute(
+                "SELECT estado, COUNT(*) AS cantidad FROM Controles WHERE activo=1 GROUP BY estado"
+            ).fetchall()
+        counts = {row["estado"]: row["cantidad"] for row in rows}
+        context["controles_disponibles"] = counts.get("DISPONIBLE", 0)
+        context["controles_en_uso"] = sum(
+            cantidad for estado, cantidad in counts.items() if estado != "DISPONIBLE"
+        )
+    return render_template(template_name, **context)
 
 
 @app.get("/buscar")
@@ -699,6 +742,11 @@ def traslado():
 
 @app.get("/historial")
 def historial():
+    return render_dashboard_page("historial.html")
+
+
+@app.get("/generar-cobro")
+def generar_cobro():
     return render_dashboard_page("historial.html")
 
 
@@ -791,18 +839,50 @@ def pacientes_por_habitacion_api(habitacion):
     room_match = re.fullmatch(r"([A-Z0-9]+)(?:-([0-9]+))?", room)
     if not room_match and not combined_match:
         return jsonify({"ok": False, "mensaje": "Ingresa un n\u00famero de habitaci\u00f3n v\u00e1lido."}), 400
+    if combined_match:
+        room_number, first_bed, second_bed = combined_match.groups()
+        exact_beds = {f"{room_number}-{first_bed}", f"{room_number}-{second_bed}", room}
+    else:
+        room_number = room_match.group(1)
+        exact_beds = {f"{room_number}-{room_match.group(2)}"} if room_match.group(2) else None
+
+    def canonical_bed(value):
+        normalized = re.sub(r"\s+", " ", str(value or "").strip().upper())
+        concatenated = re.fullmatch(r"([0-9]{3})([0-9])", normalized)
+        return f"{concatenated.group(1)}-{concatenated.group(2)}" if concatenated else normalized
+
+    def patient_room(value):
+        normalized = re.sub(r"\s+", " ", str(value or "").strip().upper())
+        match = re.match(r"^([A-Z0-9]+)", normalized)
+        return match.group(1) if match else ""
+
+    if request.args.get("contexto") == "cobro":
+        with get_local_db_connection() as connection:
+            active_loans = connection.execute(
+                """SELECT documento,nombre,COALESCE(habitacion_actual,habitacion) AS cama
+                     FROM Prestamos WHERE estado='ACTIVO'"""
+            ).fetchall()
+        local_patients = []
+        for loan in active_loans:
+            location = re.sub(r"\s+", " ", str(loan["cama"] or "").strip().upper())
+            matches = canonical_bed(location) in exact_beds if exact_beds else patient_room(location) == room_number
+            if matches:
+                local_patients.append({
+                    "tipo_identificacion": "Documento",
+                    "identificacion": str(loan["documento"] or "").strip(),
+                    "nombre_completo": str(loan["nombre"] or "").strip(),
+                    "cama": location,
+                    "origen_datos": "prestamo_local",
+                })
+        if local_patients:
+            return jsonify({"ok": True, "habitacion": room, "pacientes": local_patients})
+
     usuario_historia = oracle_user_from_request()
     if not usuario_historia:
         return jsonify({"ok": False, "mensaje": ORACLE_AUTH_MESSAGE}), 428
     if not ORACLE_PASSWORD:
         return jsonify({"ok": False, "mensaje": "La consulta de pacientes no est\u00e1 configurada."}), 503
     try:
-        if combined_match:
-            room_number, first_bed, second_bed = combined_match.groups()
-            exact_beds = {f"{room_number}-{first_bed}", f"{room_number}-{second_bed}", room}
-        else:
-            room_number = room_match.group(1)
-            exact_beds = {f"{room_number}-{room_match.group(2)}"} if room_match.group(2) else None
         patients = buscar_por_habitacion(room_number, usuario_historia)
         with get_local_db_connection() as connection:
             for patient in patients:
@@ -846,10 +926,6 @@ def pacientes_por_habitacion_api(habitacion):
                     ],
                 }
         if exact_beds:
-            def canonical_bed(value):
-                normalized = re.sub(r"\s+", " ", str(value or "").strip().upper())
-                concatenated = re.fullmatch(r"([0-9]{3})([0-9])", normalized)
-                return f"{concatenated.group(1)}-{concatenated.group(2)}" if concatenated else normalized
             exact_matches = [patient for patient in patients if canonical_bed(patient.get("cama")) in exact_beds]
             if not exact_matches and patients:
                 return jsonify({
@@ -857,6 +933,11 @@ def pacientes_por_habitacion_api(habitacion):
                     "mensaje": "El censo no identifica la cama individual para esta habitaci\u00f3n; consulta el cuarto completo o valida la cama en el censo.",
                 }), 409
             patients = exact_matches
+        else:
+            patients = [
+                patient for patient in patients
+                if patient_room(patient.get("cama")) == room_number
+            ]
     except Exception:
         app.logger.exception("Error consultando pacientes por habitaci\u00f3n")
         return jsonify({"ok": False, "mensaje": "No fue posible consultar los pacientes de esa habitaci\u00f3n."}), 500
@@ -1165,13 +1246,9 @@ def crear_prestamo_api():
             updated = connection.execute("UPDATE Controles SET estado='PRESTADO',ubicacion_asignada=?,updated_at=? WHERE id=? AND estado='DISPONIBLE'", (location["ubicacion_codigo"], now, control_id))
             if updated.rowcount != 1:
                 return jsonify({"ok": False, "mensaje": "No se pudo reservar el control; permanece disponible."}), 409
-            connection.execute("""INSERT INTO Prestamos(documento,nombre,habitacion,habitacion_actual,control_id,control_codigo,fecha_entrega,estado,responsable,responsable_entrega,recibe,valor_diario,valor_total,exoneracion_categoria,observaciones,confirmacion_cama,confirmacion_fisica)
-                VALUES(?,?,?,?,?,?,?,'ACTIVO',?,?,?,?,0,?,'Cama y control confirmados físicamente por el responsable',1,1)""",
-                (documento,nombre,location["ubicacion_codigo"],location["ubicacion_codigo"],control_id,control["codigo"],now,responsable,responsable,recibe,valor_diario,exoneracion_categoria or None))
-            connection.execute(
-                "UPDATE Prestamos SET parentesco=? WHERE documento=? AND fecha_entrega=? AND estado='ACTIVO'",
-                (parentesco or None, documento, now),
-            )
+            connection.execute("""INSERT INTO Prestamos(documento,nombre,habitacion,habitacion_actual,control_id,control_codigo,fecha_entrega,estado,responsable,responsable_entrega,recibe,parentesco,exoneracion_categoria,valor_diario,valor_total,observaciones,confirmacion_cama,confirmacion_fisica)
+                VALUES(?,?,?,?,?,?,?,'ACTIVO',?,?,?,?,?,?,0,'Cama y control confirmados físicamente por el responsable',1,1)""",
+                (documento, nombre, location["ubicacion_codigo"], location["ubicacion_codigo"], control_id, control["codigo"], now, responsable, responsable, recibe, parentesco, exoneracion_categoria or None, valor_diario))
         sincronizar_prestamos_activos()
         return jsonify({"ok": True, "mensaje": "Préstamo exento registrado a $0." if exoneracion_categoria else "Entrega registrada correctamente.", "control": control["codigo"], "fecha_entrega": now, "exoneracion_categoria": exoneracion_categoria or None, "valor_diario": valor_diario})
     except sqlite3.Error:
@@ -1181,10 +1258,24 @@ def crear_prestamo_api():
 
 @app.get("/api/dashboard/resumen")
 def dashboard_resumen_api():
-    if session.get("usuario") is None: return jsonify({"ok":False,"mensaje":"Sesi\u00f3n requerida."}),401
-    with get_local_db_connection() as c: rows=c.execute("SELECT estado,COUNT(*) cantidad FROM Controles WHERE activo=1 GROUP BY estado").fetchall()
-    counts={r["estado"]:r["cantidad"] for r in rows}
-    return jsonify({"ok":True,"disponibles":counts.get("DISPONIBLE",0),"en_uso":counts.get("PRESTADO",0),"pendientes":counts.get("PENDIENTE_DEVOLUCION",0),"total":sum(counts.values())})
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida."}), 401
+    with get_local_db_connection() as connection:
+        rows = connection.execute(
+            "SELECT estado,COUNT(*) AS cantidad FROM Controles WHERE activo=1 GROUP BY estado"
+        ).fetchall()
+    counts = {row["estado"]: row["cantidad"] for row in rows}
+    total = sum(counts.values())
+    unavailable = total - counts.get("DISPONIBLE", 0)
+    available = max(0, total - unavailable)
+    return jsonify({
+        "ok": True,
+        "disponibles": available,
+        "en_uso": unavailable,
+        "pendientes": counts.get("PENDIENTE_DEVOLUCION", 0),
+        "no_disponibles": unavailable,
+        "total": total,
+    })
 
 @app.get("/api/prestamos")
 def prestamos_historial_api():
@@ -1195,8 +1286,523 @@ def prestamos_historial_api():
     for r in rows:
         start=datetime.fromisoformat(r["fecha_entrega"]); end=datetime.fromisoformat(r["fecha_devolucion"]) if r["fecha_devolucion"] else now
         cost=0 if r["exoneracion_categoria"] else calcular_total(fecha_inicio=start,fecha_fin=end)
-        items.append({"id":r["id"],"documento":r["documento"],"nombre":r["nombre"],"habitacion":r["habitacion"],"habitacion_actual":r["habitacion_actual"] or r["habitacion"],"control":r["control_codigo"],"marca":r["control_marca"],"fecha_entrega":r["fecha_entrega"],"fecha_devolucion":r["fecha_devolucion"],"estado":r["estado"],"estado_control":r["control_estado"],"responsable":r["responsable_entrega"] or r["responsable"],"recibe":r["recibe"],"parentesco":r["parentesco"],"exoneracion_categoria":r["exoneracion_categoria"],"valor":r["valor_total"] if r["estado"]!="ACTIVO" else cost})
+        items.append({"id":r["id"],"documento":r["documento"],"nombre":r["nombre"],"habitacion":r["habitacion"],"habitacion_actual":r["habitacion_actual"] or r["habitacion"],"control":r["control_codigo"],"marca":r["control_marca"],"fecha_entrega":r["fecha_entrega"],"fecha_devolucion":r["fecha_devolucion"],"estado":r["estado"],"estado_control":r["control_estado"],"responsable":r["responsable_entrega"] or r["responsable"],"recibe":r["recibe"],"parentesco":r["parentesco"],"exoneracion_categoria":r["exoneracion_categoria"],"salida_autorizada_at":r["salida_autorizada_at"],"salida_autorizada_por":r["salida_autorizada_por"],"valor":r["valor_total"] if r["estado"]!="ACTIVO" else cost})
     return jsonify({"ok":True,"prestamos":items})
+
+
+@app.get("/api/inventario/controles")
+def inventario_controles_api():
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida.", "controles": []}), 401
+    with get_local_db_connection() as connection:
+        rows = connection.execute(
+            """SELECT c.id,c.codigo,c.marca,c.estado,c.ubicacion_asignada,
+                      p.id AS prestamo_id,p.documento,p.nombre,
+                      COALESCE(p.habitacion_actual,p.habitacion) AS habitacion_actual,
+                      p.fecha_entrega,p.confirmacion_fisica,p.exoneracion_categoria
+                 FROM Controles c
+                 LEFT JOIN Prestamos p ON p.control_id=c.id AND p.estado='ACTIVO'
+                WHERE c.activo=1
+                ORDER BY c.codigo,c.id"""
+        ).fetchall()
+    return jsonify({"ok": True, "controles": [dict(row) for row in rows]})
+
+
+@app.get("/api/controles/en-uso")
+def controles_en_uso_api():
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida.", "controles": []}), 401
+    with get_local_db_connection() as connection:
+        rows = connection.execute(
+            """SELECT p.id AS prestamo_id,p.documento,p.nombre,p.fecha_entrega,
+                      COALESCE(p.habitacion_actual,p.habitacion) AS habitacion_actual,
+                      p.confirmacion_fisica,c.id AS control_id,c.codigo,c.marca,c.estado AS estado_control
+                 FROM Prestamos p JOIN Controles c ON c.id=p.control_id
+                WHERE p.estado='ACTIVO' AND c.activo=1
+                ORDER BY p.fecha_entrega DESC,p.id DESC"""
+        ).fetchall()
+    return jsonify({"ok": True, "controles": [dict(row) for row in rows]})
+
+
+@app.get("/api/prestamos/<int:loan_id>/historial-traslados")
+def historial_traslados_prestamo_api(loan_id):
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida."}), 401
+    with get_local_db_connection() as connection:
+        loan = connection.execute(
+            """SELECT id,documento,nombre,control_id,control_codigo,fecha_entrega,fecha_devolucion,estado,
+                      COALESCE(responsable_entrega,responsable) AS responsable_entrega,recibe,
+                      recibe_devolucion,responsable_devolucion,habitacion AS habitacion_inicial,
+                      COALESCE(habitacion_actual,habitacion) AS ubicacion_actual,confirmacion_fisica
+                  FROM Prestamos WHERE id=?""",
+            (loan_id,),
+        ).fetchone()
+        if loan is None:
+            return jsonify({"ok": False, "mensaje": "Préstamo no encontrado."}), 404
+        control = connection.execute("SELECT estado,ubicacion_asignada FROM Controles WHERE id=?", (loan["control_id"],)).fetchone()
+        rows = connection.execute(
+            """SELECT id,documento,habitacion_origen,habitacion_destino,fecha_movimiento,responsable,
+                      estado,observaciones,devolucion_confirmada,confirmacion_fisica,
+                      control_codigo,nuevo_control_id
+                 FROM Traslados WHERE documento=? AND (control_id=? OR nuevo_control_id=?)
+                ORDER BY fecha_movimiento,id""",
+            (loan["documento"], loan["control_id"], loan["control_id"]),
+        ).fetchall()
+        relevant_transfers = connection.execute(
+            """SELECT t.id,t.documento,t.habitacion_origen,t.habitacion_destino,
+                      t.fecha_movimiento,t.responsable,t.estado,t.observaciones,
+                      t.devolucion_confirmada,t.confirmacion_fisica,t.control_id,
+                      t.control_codigo,t.nuevo_control_id,t.recibe_control_anterior,
+                      nuevo.codigo AS nuevo_control_codigo
+                 FROM Traslados t
+                 LEFT JOIN Controles nuevo ON nuevo.id=t.nuevo_control_id
+                WHERE (t.control_id=? OR t.nuevo_control_id=?) AND t.documento=?
+                ORDER BY t.fecha_movimiento,t.id""",
+            (loan["control_id"], loan["control_id"], loan["documento"]),
+        ).fetchall()
+        loans_in_control_history = connection.execute(
+            """SELECT p.id,p.documento,p.nombre,p.control_id,p.control_codigo,p.fecha_entrega,
+                       p.fecha_devolucion,p.estado,p.habitacion AS habitacion_inicial,
+                       COALESCE(p.habitacion_actual,p.habitacion) AS ubicacion_actual,
+                       COALESCE(p.responsable_entrega,p.responsable) AS responsable_entrega,
+                       p.recibe,p.parentesco,p.recibe_devolucion,p.responsable_devolucion,
+                       p.confirmacion_fisica,p.valor_total,p.horas_cobradas,
+                       p.exoneracion_categoria
+                  FROM Prestamos p WHERE p.control_id=? AND p.documento=?
+                 ORDER BY p.fecha_entrega,p.id""",
+            (loan["control_id"], loan["documento"]),
+        ).fetchall()
+    transfers = [dict(row) for row in rows]
+    latest = transfers[-1] if transfers else None
+    location_mismatch = bool(control and control["ubicacion_asignada"] and control["ubicacion_asignada"] != loan["ubicacion_actual"])
+    needs_check = bool(
+        control and (
+            control["estado"] == "PENDIENTE_DEVOLUCION"
+            or location_mismatch
+            or (latest and not latest["confirmacion_fisica"])
+        )
+    )
+    return jsonify({"ok": True, "prestamo": dict(loan), "control": dict(control) if control else None,
+                    "traslados": transfers,
+                    "historial_control": {
+                        "prestamos": [dict(item) for item in loans_in_control_history],
+                        "traslados": [dict(item) for item in relevant_transfers],
+                    },
+                    "verificar_ubicacion": needs_check})
+
+
+@app.get("/api/controles/seguimiento")
+def seguimiento_controles_ubicacion_api():
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida.", "seguimientos": []}), 401
+    search_type = str(request.args.get("tipo", "ubicacion")).strip().lower()
+    if search_type == "documento":
+        document = str(request.args.get("valor", request.args.get("documento", ""))).strip()
+        if not document:
+            return jsonify({"ok": False, "mensaje": "Indica el número de documento para consultar.", "seguimientos": []}), 400
+        exact_filter = "p.documento=?"
+        filter_parameters = (document,)
+        requested_location = document
+    else:
+        raw_location = str(request.args.get("valor", request.args.get("ubicacion", ""))).strip().upper()
+        requested_location = _canonical_transfer_location(raw_location)
+        if not requested_location:
+            return jsonify({"ok": False, "mensaje": "Indica una habitación o cama para consultar.", "seguimientos": []}), 400
+        raw_prefix = raw_location + "-%"
+        canonical_prefix = requested_location + "-%"
+        exact_filter = "UPPER(COALESCE(p.habitacion_actual,p.habitacion)) IN (?,?) OR UPPER(COALESCE(p.habitacion_actual,p.habitacion)) LIKE ? OR UPPER(COALESCE(p.habitacion_actual,p.habitacion)) LIKE ?"
+        filter_parameters = (raw_location, requested_location, raw_prefix, canonical_prefix)
+    with get_local_db_connection() as connection:
+        loans = connection.execute(
+            f"""SELECT p.id AS prestamo_id,p.documento,p.nombre,p.fecha_entrega,
+                      p.habitacion AS ubicacion_inicial,
+                      COALESCE(p.responsable_entrega,p.responsable) AS responsable_entrega,
+                      p.confirmacion_fisica AS confirmacion_fisica_inicial,
+                      COALESCE(p.habitacion_actual,p.habitacion) AS habitacion_actual,
+                      c.id AS control_id,c.codigo,c.marca,c.estado AS estado_control,
+                      c.ubicacion_asignada,p.confirmacion_fisica
+                 FROM Prestamos p JOIN Controles c ON c.id=p.control_id
+                WHERE p.estado='ACTIVO' AND c.activo=1
+                   AND ({exact_filter})
+                ORDER BY p.nombre,p.fecha_entrega DESC,p.id DESC""",
+            filter_parameters,
+        ).fetchall()
+        seguimientos = []
+        for loan in loans:
+            transfers = connection.execute(
+                """SELECT id,habitacion_origen,habitacion_destino,fecha_movimiento,responsable,
+                          estado,observaciones,devolucion_confirmada,confirmacion_fisica,control_codigo
+                     FROM Traslados WHERE documento=? AND (control_id=? OR nuevo_control_id=?)
+                    ORDER BY fecha_movimiento,id""",
+                (loan["documento"], loan["control_id"], loan["control_id"]),
+            ).fetchall()
+            transfer_items = [dict(row) for row in transfers]
+            latest = transfer_items[-1] if transfer_items else None
+            mismatch = bool(loan["ubicacion_asignada"] and loan["ubicacion_asignada"] != loan["habitacion_actual"])
+            seguimientos.append({
+                "prestamo_id": loan["prestamo_id"],
+                "documento": loan["documento"],
+                "paciente": loan["nombre"],
+                "control": loan["codigo"],
+                "marca": loan["marca"],
+                "habitacion_actual": loan["habitacion_actual"],
+                "ubicacion_inicial": loan["ubicacion_inicial"],
+                "fecha_prestamo": loan["fecha_entrega"],
+                "responsable_entrega": loan["responsable_entrega"],
+                "confirmacion_fisica_inicial": loan["confirmacion_fisica_inicial"],
+                "estado": loan["estado_control"],
+                "traslados": transfer_items,
+                "verificar_ubicacion": bool(
+                    loan["estado_control"] == "PENDIENTE_DEVOLUCION"
+                    or mismatch
+                    or (latest and not latest["confirmacion_fisica"])
+                ),
+            })
+    return jsonify({"ok": True, "ubicacion": requested_location, "seguimientos": seguimientos})
+
+
+@app.post("/api/prestamos/<int:loan_id>/traslado")
+def trasladar_prestamo_api(loan_id):
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida."}), 401
+    data = request.get_json(silent=True) or {}
+    destination_code = str(data.get("destino", "")).strip().upper()
+    if data.get("confirmar_control_fisico") is not True:
+        return jsonify({"ok": False, "mensaje": "Confirma que el control físico fue trasladado junto con el paciente."}), 400
+    if not destination_code:
+        return jsonify({"ok": False, "mensaje": "Selecciona una habitación y cama de destino."}), 400
+
+    now = datetime.now().isoformat(timespec="seconds")
+    actor = str(session.get("usuario_nombre") or session.get("usuario") or "Usuario autenticado").strip()
+    try:
+        with get_local_db_connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            destination, _catalog_source = _catalog_location(connection, destination_code)
+            if destination is None or "ubicaciones_ambiguas" in destination:
+                return jsonify({"ok": False, "mensaje": "Destino inexistente o ambiguo; selecciona una cama exacta del catálogo."}), 404
+            loan = connection.execute(
+                "SELECT * FROM Prestamos WHERE id=? AND estado='ACTIVO'", (loan_id,)
+            ).fetchone()
+            if loan is None:
+                return jsonify({"ok": False, "mensaje": "Préstamo no activo o ya devuelto."}), 404
+            if loan["exoneracion_categoria"] and not loan["salida_autorizada_at"]:
+                return jsonify({"ok":False,"mensaje":"Autoriza primero la salida del paciente exento antes de registrar la entrega física del control."}),409
+            if not loan["exoneracion_categoria"] and connection.execute(
+                "SELECT 1 FROM AutorizacionesSalida WHERE prestamo_id=? AND tipo_autorizacion='pago'",
+                (loan["id"],),
+            ).fetchone() is None:
+                return jsonify({"ok":False,"mensaje":"Autoriza primero el pago antes de registrar la entrega física del control."}),409
+            origin = loan["habitacion_actual"] or loan["habitacion"]
+            if _canonical_transfer_location(origin) == _canonical_transfer_location(destination["ubicacion_codigo"]):
+                return jsonify({"ok": False, "mensaje": "El destino debe ser distinto de la ubicación actual."}), 400
+            control = connection.execute(
+                "SELECT * FROM Controles WHERE id=? AND activo=1 AND estado IN ('PRESTADO','PENDIENTE_DEVOLUCION')",
+                (loan["control_id"],),
+            ).fetchone()
+            if control is None:
+                return jsonify({"ok": False, "mensaje": "El inventario no confirma un control asignado a este préstamo."}), 409
+            updated = connection.execute(
+                "UPDATE Controles SET ubicacion_asignada=?,updated_at=? WHERE id=? AND activo=1 AND estado IN ('PRESTADO','PENDIENTE_DEVOLUCION')",
+                (destination["ubicacion_codigo"], now, control["id"]),
+            )
+            if updated.rowcount != 1:
+                return jsonify({"ok": False, "mensaje": "No se pudo actualizar la ubicación del control asignado."}), 409
+            moved = connection.execute(
+                "UPDATE Prestamos SET habitacion_actual=? WHERE id=? AND estado='ACTIVO'",
+                (destination["ubicacion_codigo"], loan_id),
+            )
+            if moved.rowcount != 1:
+                return jsonify({"ok": False, "mensaje": "No se pudo mover el préstamo a la nueva habitación."}), 409
+            connection.execute(
+                """INSERT INTO Traslados(documento,habitacion_origen,habitacion_destino,control_id,
+                          control_codigo,fecha_movimiento,responsable,estado,observaciones,
+                          devolucion_confirmada,nuevo_control_id,recibe_control_anterior,confirmacion_fisica)
+                   VALUES(?,?,?,?,?,?,?,'REGISTRADO','Control físico confirmado junto con el paciente',0,NULL,NULL,1)""",
+                (loan["documento"], origin, destination["ubicacion_codigo"], control["id"], control["codigo"], now, actor),
+            )
+        return jsonify({"ok": True, "mensaje": "Traslado registrado y ubicación física del control confirmada.", "fecha_movimiento": now})
+    except sqlite3.Error:
+        app.logger.exception("No se pudo confirmar el traslado del control")
+        return jsonify({"ok": False, "mensaje": "No se guardó el traslado; se mantiene la ubicación anterior."}), 500
+
+
+@app.get("/api/historial/prestamo-actual")
+def historial_prestamo_actual_api():
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesi\u00f3n requerida."}), 401
+    patient = session.get("paciente_validado") or {}
+    document = str(patient.get("identificacion", "")).strip()
+    requested_document = request.args.get("documento", "").strip()
+    if requested_document and requested_document != document:
+        with get_local_db_connection() as connection:
+            local_loan = connection.execute(
+                """SELECT documento,nombre,COALESCE(habitacion_actual,habitacion) AS cama
+                     FROM Prestamos WHERE documento=? AND estado='ACTIVO'
+                     ORDER BY fecha_entrega DESC,id DESC LIMIT 1""",
+                (requested_document,),
+            ).fetchone()
+        if local_loan is None:
+            return jsonify({"ok": False, "mensaje": "El paciente validado no coincide con la búsqueda actual."}), 409
+        patient = {
+            "identificacion": local_loan["documento"],
+            "nombre_completo": local_loan["nombre"],
+            "cama": local_loan["cama"],
+        }
+        session["paciente_validado"] = patient
+        document = requested_document
+    elif requested_document:
+        document = requested_document
+    if not document:
+        return jsonify({"ok": False, "mensaje": "Busca y valida al paciente antes de consultar el pr\u00e9stamo."}), 403
+
+    patient_location = str(patient.get("cama", "")).strip()
+    with get_local_db_connection() as connection:
+        loan = connection.execute(
+            """SELECT p.*, c.marca AS control_marca
+                 FROM Prestamos p
+                 LEFT JOIN Controles c ON c.id=p.control_id
+                WHERE p.documento=? AND p.estado='ACTIVO'
+                ORDER BY p.fecha_entrega DESC,p.id DESC LIMIT 1""",
+            (document,),
+        ).fetchone()
+        if loan:
+            exit_approval = connection.execute(
+                """SELECT exoneracion_categoria,tipo_autorizacion,uso_servicio,prestamo_id,autorizado_at,autorizado_por,
+                          valor_autorizado,dias_cobrados
+                     FROM AutorizacionesSalida WHERE prestamo_id=? ORDER BY id DESC LIMIT 1""",
+                (loan["id"],),
+            ).fetchone()
+        else:
+            exit_approval = connection.execute(
+                """SELECT exoneracion_categoria,tipo_autorizacion,uso_servicio,prestamo_id,autorizado_at,autorizado_por,
+                          valor_autorizado,dias_cobrados
+                     FROM AutorizacionesSalida WHERE documento=? ORDER BY id DESC LIMIT 1""",
+                (document,),
+            ).fetchone()
+
+    if loan is None:
+        return jsonify({
+            "ok": True,
+            "paciente": {
+                "nombre": patient.get("nombre_completo") or "Paciente NN",
+                "documento": document,
+                "ubicacion": patient_location or "No informada",
+            },
+            "prestamo": None,
+            "autorizacion_salida": dict(exit_approval) if exit_approval else None,
+        })
+
+    start = datetime.fromisoformat(loan["fecha_entrega"])
+    service_days = max(1, (date.today() - start.date()).days)
+    exempt = bool(loan["exoneracion_categoria"])
+    total = 0 if exempt else service_days * PRECIO_DIARIO
+    if (exit_approval and exit_approval["tipo_autorizacion"] == "pago"
+            and str(exit_approval["prestamo_id"]) == str(loan["id"])
+            and exit_approval["dias_cobrados"] > 0):
+        service_days = exit_approval["dias_cobrados"]
+        total = exit_approval["valor_autorizado"]
+    return jsonify({
+        "ok": True,
+        "paciente": {
+            "nombre": patient.get("nombre_completo") or loan["nombre"] or "Paciente NN",
+            "documento": document,
+            "ubicacion": loan["habitacion_actual"] or loan["habitacion"] or patient_location or "No informada",
+        },
+        "prestamo": {
+            "id": loan["id"],
+            "control": loan["control_codigo"],
+            "control_id": loan["control_id"],
+            "marca": loan["control_marca"] or "No informada",
+            "estado": "ACTIVO",
+            "fecha_entrega": loan["fecha_entrega"],
+            "dias_servicio": service_days,
+            "tarifa_diaria": 0 if exempt else PRECIO_DIARIO,
+            "total": total,
+            "exento": exempt,
+            "exoneracion_categoria": loan["exoneracion_categoria"],
+            "salida_autorizada_at": loan["salida_autorizada_at"],
+            "salida_autorizada_por": loan["salida_autorizada_por"],
+        },
+        "autorizacion_salida": dict(exit_approval) if exit_approval else None,
+    })
+
+
+@app.post("/api/autorizaciones-salida")
+def crear_autorizacion_salida_api():
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida."}), 401
+    patient = session.get("paciente_validado") or {}
+    document = str(patient.get("identificacion", "")).strip()
+    if not document:
+        return jsonify({"ok": False, "mensaje": "Busca y valida al paciente antes de autorizar la salida."}), 403
+    data = request.get_json(silent=True) or {}
+    authorization_type = str(data.get("tipo_autorizacion", "")).strip().lower()
+    if authorization_type not in {"pago", "salida_exenta"}:
+        return jsonify({"ok": False, "mensaje": "Selecciona autorizar pago o autorizar salida exenta."}), 400
+    service_used = data.get("uso_servicio")
+    if not isinstance(service_used, bool):
+        return jsonify({"ok": False, "mensaje": "Indica si el paciente utilizó el servicio."}), 400
+    if authorization_type == "pago" and not service_used:
+        return jsonify({"ok": False, "mensaje": "Para autorizar el pago, confirma que el paciente utilizó el servicio."}), 400
+    category = str(data.get("exoneracion_categoria", "")).strip()
+    allowed_categories = {
+        "Medicina Prepagada", "Plan Complementario", "Habitante en situación de calle",
+        "Universidad Nacional", "Particulares", "Póliza", "Empleados y Familiares",
+        "Pacientes que pagan excedentes de habitación",
+    }
+    category_key = unicodedata.normalize("NFKD", category).encode("ascii", "ignore").decode("ascii").lower()
+    normalized_categories = {
+        unicodedata.normalize("NFKD", item).encode("ascii", "ignore").decode("ascii").lower(): item
+        for item in allowed_categories
+    }
+    if category_key and category_key not in normalized_categories:
+        return jsonify({"ok": False, "mensaje": "La categoría de exoneración no es válida."}), 400
+    if authorization_type == "salida_exenta" and category_key not in normalized_categories:
+        return jsonify({"ok": False, "mensaje": "Selecciona una categoría de exoneración válida."}), 400
+    if authorization_type == "pago" and category_key:
+        return jsonify({"ok": False, "mensaje": "No selecciones una categoría exenta para autorizar el pago."}), 400
+    category = normalized_categories.get(category_key, "No aplica")
+    now = datetime.now().isoformat(timespec="seconds")
+    actor = str(session.get("usuario_nombre") or session.get("usuario") or "Usuario autenticado").strip()
+    try:
+        with get_local_db_connection() as connection:
+            active_loan = connection.execute(
+                "SELECT id,exoneracion_categoria FROM Prestamos WHERE documento=? AND estado='ACTIVO' ORDER BY id DESC LIMIT 1", (document,)
+            ).fetchone()
+            if authorization_type == "pago" and active_loan and active_loan["exoneracion_categoria"]:
+                return jsonify({"ok": False, "mensaje": "El préstamo tiene una categoría exenta; autoriza la salida exenta en lugar del pago."}), 409
+            if active_loan:
+                connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """INSERT INTO AutorizacionesSalida
+                         (documento,nombre,ubicacion,exoneracion_categoria,tipo_autorizacion,uso_servicio,
+                    prestamo_id,autorizado_at,autorizado_por)
+                   VALUES(?,?,?,?,?,?,?,?,?)""",
+                (document, patient.get("nombre_completo") or "Paciente NN", patient.get("cama"), category,
+                 authorization_type, int(service_used), active_loan["id"] if active_loan else None, now, actor),
+            )
+            if authorization_type == "salida_exenta" and active_loan:
+                connection.execute(
+                    """UPDATE Prestamos SET exoneracion_categoria=?,salida_autorizada_at=?,salida_autorizada_por=?
+                         WHERE id=? AND estado='ACTIVO'""",
+                    (category, now, actor, active_loan["id"]),
+                )
+        return jsonify({
+            "ok": True,
+            "mensaje": "Pago autorizado." if authorization_type == "pago" else "Salida exenta autorizada.",
+            "tipo_autorizacion": authorization_type,
+            "uso_servicio": service_used,
+            "exoneracion_categoria": category,
+            "autorizado_at": now,
+            "autorizado_por": actor,
+            "prestamo_id": active_loan["id"] if active_loan else None,
+        })
+    except sqlite3.Error:
+        app.logger.exception("No se pudo registrar la autorización de salida")
+        return jsonify({"ok": False, "mensaje": "No se guardó la autorización de salida."}), 500
+
+
+@app.post("/api/prestamos/<int:loan_id>/cobro")
+def registrar_cobro_prestamo_api(loan_id):
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "SesiÃ³n requerida."}), 401
+    data = request.get_json(silent=True) or {}
+    service_used = data.get("uso_servicio")
+    if not isinstance(service_used, bool):
+        return jsonify({"ok": False, "mensaje": "Confirma si el paciente utilizÃ³ el servicio."}), 400
+    now = datetime.now().isoformat(timespec="seconds")
+    actor = str(session.get("usuario_nombre") or session.get("usuario") or "Usuario autenticado").strip()
+    try:
+        with get_local_db_connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            loan = connection.execute(
+                """SELECT id,documento,nombre,COALESCE(habitacion_actual,habitacion) AS ubicacion,
+                          exoneracion_categoria,fecha_entrega
+                     FROM Prestamos WHERE id=? AND estado='ACTIVO'""",
+                (loan_id,),
+            ).fetchone()
+            if loan is None:
+                return jsonify({"ok": False, "mensaje": "PrÃ©stamo no activo o no encontrado."}), 404
+            if loan["exoneracion_categoria"]:
+                return jsonify({"ok": False, "mensaje": "Este prÃ©stamo estÃ¡ exento; no corresponde registrar un cobro."}), 409
+            existing = connection.execute(
+                """SELECT id,autorizado_at,autorizado_por,uso_servicio,valor_autorizado,dias_cobrados FROM AutorizacionesSalida
+                    WHERE prestamo_id=? AND tipo_autorizacion='pago' ORDER BY id DESC LIMIT 1""",
+                (loan_id,),
+            ).fetchone()
+            if existing is None:
+                start = datetime.fromisoformat(loan["fecha_entrega"])
+                days = max(1, (date.today() - start.date()).days)
+                amount = days * PRECIO_DIARIO if service_used else 0
+                connection.execute(
+                    """INSERT INTO AutorizacionesSalida
+                         (documento,nombre,ubicacion,exoneracion_categoria,tipo_autorizacion,uso_servicio,
+                          prestamo_id,autorizado_at,autorizado_por,valor_autorizado,dias_cobrados)
+                       VALUES(?,?,?,'No aplica','pago',?,?,?,?,?,?)""",
+                    (loan["documento"], loan["nombre"] or "Paciente NN", loan["ubicacion"],
+                     int(service_used), loan_id, now, actor, amount, days),
+                )
+            else:
+                service_used = bool(existing["uso_servicio"])
+                days = existing["dias_cobrados"]
+                amount = existing["valor_autorizado"]
+                if days <= 0:
+                    start = datetime.fromisoformat(loan["fecha_entrega"])
+                    days = max(1, (date.today() - start.date()).days)
+                    amount = days * PRECIO_DIARIO if service_used else 0
+                    connection.execute("UPDATE AutorizacionesSalida SET dias_cobrados=?,valor_autorizado=? WHERE id=?", (days, amount, existing["id"]))
+        return jsonify({
+            "ok": True, "mensaje": "Cobro registrado." if service_used else "Servicio no utilizado; cobro registrado en $0 COP.",
+            "prestamo_id": loan_id, "uso_servicio": service_used, "dias_servicio": days,
+            "valor_total": amount, "autorizado_at": existing["autorizado_at"] if existing else now,
+            "autorizado_por": existing["autorizado_por"] if existing else actor,
+        })
+    except sqlite3.Error:
+        app.logger.exception("No se pudo registrar el cobro del prÃ©stamo")
+        return jsonify({"ok": False, "mensaje": "No se guardÃ³ el cobro; el inventario permanece sin cambios."}), 500
+
+
+@app.post("/api/prestamos/<int:loan_id>/autorizar-salida")
+def autorizar_salida_prestamo_api(loan_id):
+    if session.get("usuario") is None:
+        return jsonify({"ok": False, "mensaje": "Sesión requerida."}), 401
+    now = datetime.now().isoformat(timespec="seconds")
+    actor = str(session.get("usuario_nombre") or session.get("usuario") or "Usuario autenticado").strip()
+    try:
+        with get_local_db_connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            loan = connection.execute(
+                "SELECT exoneracion_categoria,salida_autorizada_at,salida_autorizada_por "
+                "FROM Prestamos WHERE id=? AND estado='ACTIVO'",
+                (loan_id,),
+            ).fetchone()
+            if loan is None:
+                return jsonify({"ok": False, "mensaje": "Préstamo no activo o no encontrado."}), 404
+            if not loan["exoneracion_categoria"]:
+                return jsonify({"ok": False, "mensaje": "El aval de salida solo aplica a pacientes exentos de pago."}), 409
+            if loan["salida_autorizada_at"]:
+                return jsonify({
+                    "ok": True,
+                    "mensaje": "La salida ya había sido autorizada.",
+                    "salida_autorizada_at": loan["salida_autorizada_at"],
+                    "salida_autorizada_por": loan["salida_autorizada_por"],
+                })
+            updated = connection.execute(
+                "UPDATE Prestamos SET salida_autorizada_at=?,salida_autorizada_por=? "
+                "WHERE id=? AND estado='ACTIVO' AND salida_autorizada_at IS NULL",
+                (now, actor, loan_id),
+            )
+            if updated.rowcount != 1:
+                return jsonify({"ok": False, "mensaje": "No se pudo registrar el aval de salida."}), 409
+        return jsonify({
+            "ok": True,
+            "mensaje": "Salida autorizada. El control sigue registrado hasta confirmar su devolución física.",
+            "salida_autorizada_at": now,
+            "salida_autorizada_por": actor,
+        })
+    except sqlite3.Error:
+        app.logger.exception("No se pudo registrar el aval de salida")
+        return jsonify({"ok": False, "mensaje": "No se guardó el aval de salida."}), 500
 
 @app.post("/api/prestamos/<int:loan_id>/devolucion")
 def devolver_prestamo_api(loan_id):
@@ -1210,8 +1816,25 @@ def devolver_prestamo_api(loan_id):
             c.execute("BEGIN IMMEDIATE")
             loan=c.execute("SELECT * FROM Prestamos WHERE id=? AND estado='ACTIVO'",(loan_id,)).fetchone()
             if not loan: return jsonify({"ok":False,"mensaje":"Préstamo no activo o ya devuelto."}),404
+            if loan["exoneracion_categoria"] and not loan["salida_autorizada_at"]:
+                return jsonify({"ok":False,"mensaje":"Autoriza primero la salida del paciente exento antes de registrar la entrega física del control."}),409
+            payment_approval = c.execute(
+                """SELECT uso_servicio,valor_autorizado,dias_cobrados FROM AutorizacionesSalida
+                    WHERE prestamo_id=? AND tipo_autorizacion='pago' LIMIT 1""",
+                (loan_id,),
+            ).fetchone()
+            if not loan["exoneracion_categoria"] and payment_approval is None:
+                return jsonify({"ok":False,"mensaje":"Autoriza primero el pago antes de registrar la entrega física del control."}),409
             start=datetime.fromisoformat(loan["fecha_entrega"]); end=datetime.fromisoformat(now)
-            amount=0 if loan["exoneracion_categoria"] else calcular_total(fecha_inicio=start,fecha_fin=end); hours=max(0,(end-start).total_seconds()/3600)
+            if loan["exoneracion_categoria"]:
+                amount = 0
+            elif payment_approval and payment_approval["dias_cobrados"] > 0:
+                amount = payment_approval["valor_autorizado"]
+            elif payment_approval and not payment_approval["uso_servicio"]:
+                amount = 0
+            else:
+                amount = calcular_total(fecha_inicio=start, fecha_fin=end)
+            hours=max(0,(end-start).total_seconds()/3600)
             updated=c.execute("UPDATE Controles SET estado='DISPONIBLE',ubicacion_asignada=NULL,updated_at=? WHERE id=? AND estado IN ('PRESTADO','PENDIENTE_DEVOLUCION')",(now,loan["control_id"]))
             if updated.rowcount!=1: return jsonify({"ok":False,"mensaje":"Inventario no confirma que el control esté prestado; devolución sin cambios."}),409
             c.execute("UPDATE Prestamos SET estado='DEVUELTO',fecha_devolucion=?,valor_total=?,horas_cobradas=?,recibe_devolucion=?,responsable_devolucion=? WHERE id=? AND estado='ACTIVO'",(now,amount,hours,recibe,actor,loan_id))
@@ -1243,12 +1866,14 @@ def crear_traslado_api():
         new_id = int(data.get("nuevo_control")) if data.get("nuevo_control") else None
     except (TypeError, ValueError):
         new_id = None
-    if not origin or not dest or origin == dest:
-        return jsonify({"ok": False, "mensaje": "Indica habitaci?n y cama de origen y un destino distinto."}), 400
+    exoneration_category = str(data.get("exoneracion_categoria", "")).strip()
+    if not origin or not dest:
+        return jsonify({"ok": False, "mensaje": "Indica habitaci?n y cama de origen y destino."}), 400
     allowed_relationships = {
         "paciente": "Paciente",
         "conyuge": "C\u00f3nyuge",
         "hijo/a": "Hijo/a",
+        "padre/madre": "Padre/Madre",
         "familiar": "Familiar",
         "otro": "Otro",
     }
@@ -1263,6 +1888,24 @@ def crear_traslado_api():
                 new_relationship = allowed_relationships[relationship_key]
     if new_id and (not new_recipient or not new_relationship):
         return jsonify({"ok": False, "mensaje": "Selecciona qui\u00e9n recibe el nuevo control y su parentesco."}), 400
+    if exoneration_category and not new_id:
+        return jsonify({"ok": False, "mensaje": "La exoneraci\u00f3n solo aplica cuando se entrega un nuevo control."}), 400
+    allowed_exemptions = {
+        "medicina prepagada": "Medicina Prepagada",
+        "plan complementario": "Plan Complementario",
+        "habitante en situacion de calle": "Habitante en situaci\u00f3n de calle",
+        "universidad nacional": "Universidad Nacional",
+        "particulares": "Particulares",
+        "poliza": "P\u00f3liza",
+        "empleados y familiares": "Empleados y Familiares",
+        "pacientes que pagan excedentes de habitacion": "Pacientes que pagan excedentes de habitaci\u00f3n",
+    }
+    if exoneration_category:
+        exemption_key = unicodedata.normalize("NFKD", exoneracion_category).encode("ascii", "ignore").decode("ascii").strip().lower()
+        if exemption_key not in allowed_exemptions:
+            return jsonify({"ok": False, "mensaje": "Selecciona una categor\u00eda de exoneraci\u00f3n v\u00e1lida."}), 400
+        exoneration_category = allowed_exemptions[exemption_key]
+    new_daily_rate = 0 if exoneration_category else PRECIO_DIARIO
 
     with get_local_db_connection() as connection:
         destination, _catalog_source = _catalog_location(connection, dest)
@@ -1277,7 +1920,7 @@ def crear_traslado_api():
         with get_local_db_connection() as c:
             c.execute("BEGIN IMMEDIATE")
             loan = c.execute(
-                "SELECT * FROM Prestamos WHERE documento=? AND estado='ACTIVO' ORDER BY id DESC LIMIT 1",
+                "SELECT * FROM Prestamos WHERE documento=? AND estado='ACTIVO' ORDER BY fecha_entrega DESC,id DESC LIMIT 1",
                 (doc,),
             ).fetchone()
             if disposition is None:
@@ -1290,8 +1933,8 @@ def crear_traslado_api():
 
             old = None
             if loan:
-                if str(loan["habitacion_actual"] or loan["habitacion"] or "").strip().upper() != origin:
-                    return jsonify({"ok": False, "mensaje": "El origen no coincide con la ubicaci?n del pr?stamo activo."}), 409
+                loan_origin = _canonical_transfer_location(loan["habitacion_actual"] or loan["habitacion"])
+                origin = loan_origin
                 old = c.execute(
                     "SELECT * FROM Controles WHERE id=? AND activo=1 AND estado IN ('PRESTADO','PENDIENTE_DEVOLUCION')",
                     (loan["control_id"],),
@@ -1301,13 +1944,18 @@ def crear_traslado_api():
                 if disposition == "no_control":
                     return jsonify({"ok": False, "mensaje": "El paciente tiene un pr?stamo activo; registra devoluci?n f?sica o devoluci?n pendiente."}), 409
             else:
-                patient_location = str(patient.get("cama", "")).strip().upper()
+                patient_location = _canonical_transfer_location(patient.get("cama", ""))
                 patient_room = patient_location.rsplit("-", 1)[0] if re.fullmatch(r"[A-Z0-9]+-[0-9]+", patient_location) else patient_location
-                origin_room = origin.rsplit("-", 1)[0] if re.fullmatch(r"[A-Z0-9]+-[0-9]+", origin) else origin
+                canonical_origin = _canonical_transfer_location(origin)
+                origin_room = canonical_origin.rsplit("-", 1)[0] if re.fullmatch(r"[A-Z0-9]+-[0-9]+", canonical_origin) else canonical_origin
                 if patient_room != origin_room:
                     return jsonify({"ok": False, "mensaje": "El origen no coincide con la ubicaci?n actual confirmada del paciente."}), 409
+                origin = patient_location
                 if disposition in {"returned", "pending"}:
                     return jsonify({"ok": False, "mensaje": "No existe un control anterior que pueda devolverse o quedar pendiente."}), 409
+
+            if _canonical_transfer_location(origin) == _canonical_transfer_location(dest):
+                return jsonify({"ok": False, "mensaje": "El destino debe ser distinto de la ubicación de origen."}), 400
 
             new = None
             if new_id:
@@ -1353,9 +2001,9 @@ def crear_traslado_api():
                 )
                 if changed.rowcount != 1:
                     raise sqlite3.IntegrityError("El nuevo control dej? de estar disponible.")
-                c.execute("""INSERT INTO Prestamos(documento,nombre,habitacion,habitacion_actual,control_id,control_codigo,fecha_entrega,estado,responsable,responsable_entrega,recibe,parentesco,valor_diario,valor_total,observaciones,confirmacion_cama,confirmacion_fisica)
-                    VALUES(?,?,?,?,?,?,?,'ACTIVO',?,?,?,?,?,0,'Cama y control asignados por el cat\u00e1logo durante el traslado',1,1)""",
-                    (doc, patient.get("nombre_completo", ""), destination["ubicacion_codigo"], destination["ubicacion_codigo"], new_id, new["codigo"], now, actor, actor, new_recipient, new_relationship, PRECIO_DIARIO))
+                c.execute("""INSERT INTO Prestamos(documento,nombre,habitacion,habitacion_actual,control_id,control_codigo,fecha_entrega,estado,responsable,responsable_entrega,recibe,parentesco,exoneracion_categoria,valor_diario,valor_total,observaciones,confirmacion_cama,confirmacion_fisica)
+                    VALUES(?,?,?,?,?,?,?,'ACTIVO',?,?,?,?,?,?,0,'Cama y control confirmados físicamente por el responsable',1,1)""",
+                    (doc, patient.get("nombre_completo", ""), destination["ubicacion_codigo"], destination["ubicacion_codigo"], new_id, new["codigo"], now, actor, actor, new_recipient, new_relationship, exoneration_category or None, new_daily_rate))
 
             old_id = old["id"] if old else None
             old_code = old["codigo"] if old else None
@@ -1369,7 +2017,7 @@ def crear_traslado_api():
         message = "Traslado registrado. " + note + "."
         if new is not None:
             message += " Nuevo control " + new["codigo"] + " entregado."
-        return jsonify({"ok": True, "mensaje": message})
+        return jsonify({"ok": True, "mensaje": message, "exoneracion_categoria": exoneration_category or None, "valor_diario": new_daily_rate if new is not None else None})
     except sqlite3.Error:
         app.logger.exception("No se pudo registrar el traslado")
         return jsonify({"ok": False, "mensaje": "No se guard? el traslado; se revirti? la operaci?n completa."}), 500

@@ -5,9 +5,9 @@
 <section class="dashboard-content dashboard-home">
   <section class="welcome-banner" aria-labelledby="welcome-title">
     <div class="welcome-copy">
-      <h1 id="welcome-title"><span>¡Hola!</span><span>{{ usuario_nombre }}</span></span><span></span></h1>
+      <h1 id="welcome-title"><span>¡Hola!</span><span>{{ usuario_nombre }}</span></h1>
       <h3>Nos alegra tenerte aquí.</h3>
-      <p><span class="welcome-line"> Desde aquí puedes Gestionar los préstamos, realizar consultas</span><span></span> y mirar la disponibilidad de los controles.</span><span class="welcome-line">Tambien puedes realizar el seguimiento de cada entrega y devolución</span><span class="welcome-final-line">de manera fácil y organizada.</span></p>
+      <p>Desde aquí puedes gestionar los préstamos y realizar consultas, mirar la disponibilidad de los controles. También puedes realizar el seguimiento de cada entrega y devolución de manera fácil y organizada.</p>
     </div>
   </section>
   <nav class="home-quick-actions" aria-label="Accesos rápidos">
@@ -24,17 +24,60 @@
       </div>
     </article>
     <a class="quick-action quick-action-transfer home-action-button" href="{{ url_for('traslado') }}"><span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 8h15m0 0-4-4m4 4-4 4M20 16H5m0 0 4 4m-4-4 4-4" /></svg></span><span><strong>Traslados</strong><small>Gestiona cambios de habitación</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></a>
-    <a class="quick-action quick-action-history" href="{{ url_for('historial') }}"><span class="quick-action-icon" aria-hidden="true">▤</span><span><strong>Historial de préstamos</strong><small>Revisa movimientos y devoluciones</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></a>
+    <a class="quick-action quick-action-history" href="{{ url_for('generar_cobro') }}"><span class="quick-action-icon" aria-hidden="true">▤</span><span><strong>Generar Cobro</strong><small>Consulta el paciente y prepara el comprobante</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></a>
   </nav>
   <section class="home-metrics" aria-labelledby="home-metrics-title">
-    <div class="home-metrics-heading"><p class="eyebrow">Estado del inventario</p><h2 id="home-metrics-title">Resumen de controles</h2></div>
+    <div class="home-metrics-heading"><h2 id="home-metrics-title">Resumen de controles</h2></div>
     <div class="stat-grid home-stat-grid" aria-label="Métricas rápidas">
-      <article class="stat-card stat-green"><span class="stat-icon">▣</span><div><small>Controles disponibles</small><strong id="count-available">159</strong><span class="stat-trend">Inventario inicial cargado</span></div></article>
-      <article class="stat-card stat-red"><span class="stat-icon">◷</span><div><small>Controles en uso</small><strong id="count-in-use">0</strong><span class="stat-trend">Prestados a pacientes</span></div></article>
-      <article class="stat-card stat-orange"><span class="stat-icon">!</span><div><small>Pendientes de devolución</small><strong id="count-pending">0</strong><span class="stat-trend">Sin devoluciones pendientes</span></div></article>
+      <article class="stat-card stat-green inventory-stat" data-inventory-filter="DISPONIBLE" tabindex="0" role="button" aria-label="Ver controles disponibles" aria-haspopup="dialog">
+        <span class="stat-icon" aria-hidden="true">▣</span><div><small>Controles disponibles</small><strong id="count-available">—</strong><span class="stat-trend">Inventario actualizado</span></div>
+      </article>
+      <article class="stat-card stat-red inventory-stat" data-inventory-filter="EN_USO" tabindex="0" role="button" aria-label="Ver controles en uso" aria-haspopup="dialog">
+        <span class="stat-icon" aria-hidden="true">◷</span><div><small>Controles en uso</small><strong id="count-in-use">0</strong><span class="stat-trend">No disponibles para préstamo</span></div>
+      </article>
+      <button class="quick-action quick-action-reentry home-action-button home-reentry-bottom" id="open-inventory-reentry" type="button"><span class="quick-action-icon" aria-hidden="true">↩</span><span><strong>Reingreso al inventario</strong><small>Registrar un control devuelto</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></button>
     </div>
-    
   </section>
+  </section>
+<dialog class="workflow-modal inventory-detail-modal" id="inventory-detail-modal" aria-labelledby="inventory-detail-title">
+  <header class="workflow-modal-header">
+    <div><h2 id="inventory-detail-title">Controles en uso</h2></div>
+    <button class="modal-close" type="button" data-close-inventory-modal aria-label="Cerrar detalle">×</button>
+  </header>
+  <p id="in-use-status" class="workflow-status" role="status" aria-live="polite" hidden></p>
+  <section class="inventory-list-view" id="inventory-list-view" aria-label="Controles del estado seleccionado">
+    <label class="inventory-search" for="inventory-search" hidden>Filtrar la habitación<input id="inventory-search" type="search" placeholder="Número de habitación" autocomplete="off"></label>
+    <div class="table-wrap"><table class="inventory-table in-use-table"><thead><tr><th>Usuario / Documento</th><th>Habitaci&#243;n / cama</th><th>Pr&#233;stamo / D&#237;as en uso</th><th>Control</th><th>Estado</th><th>Detalle</th></tr></thead><tbody id="in-use-rows"></tbody></table></div>
+    <nav class="modal-pagination" aria-label="Paginación de controles"><button class="secondary-action" id="inventory-page-previous" type="button" aria-label="Página anterior">Anterior</button><span id="inventory-page-label" aria-live="polite">Página 1 de 1</span><button class="secondary-action" id="inventory-page-next" type="button" aria-label="Página siguiente">Siguiente</button></nav>
+  </section>
+  <section class="transfer-detail" id="transfer-detail" hidden aria-labelledby="transfer-detail-title">
+    <header class="tracking-heading"><h3 id="transfer-detail-title">Historial y seguimiento de los controles</h3></header>
+    <section class="tracking-patient-summary" id="tracking-patient-summary" aria-label="Paciente consultado" hidden>
+      <div><dt>Paciente</dt><dd id="tracking-patient-name">—</dd></div>
+      <div><dt>Documento</dt><dd id="tracking-patient-document">—</dd></div>
+    </section>
+    <p id="location-tracking-status" class="workflow-status" role="status" aria-live="polite" hidden></p>
+    <section class="transfer-history" aria-label="Ruta del control">
+    <p id="transfer-history-warning" class="transfer-warning" role="status" hidden>Verificar ubicación física del control</p>
+    <ol id="transfer-timeline" class="transfer-timeline"><li class="timeline-empty">Selecciona un control para consultar sus movimientos.</li></ol>
+    <nav class="modal-pagination timeline-pagination" aria-label="Paginación del historial"><button class="secondary-action" id="timeline-page-previous" type="button" aria-label="Movimiento anterior">Anterior</button><span id="timeline-page-label" aria-live="polite">Movimientos 0 de 0</span><button class="secondary-action" id="timeline-page-next" type="button" aria-label="Siguiente movimiento">Siguiente</button></nav>
+    </section>
+    <div class="tracking-footer"><button class="secondary-action" id="inventory-back-to-list" type="button">Volver a controles</button><button class="secondary-action" id="export-transfer-pdf" type="button" title="Imprimir o guardar como PDF">PDF</button></div>
+  </section>
+</dialog>
+<dialog class="workflow-modal inventory-reentry-modal" id="inventory-reentry-modal" aria-labelledby="inventory-reentry-title">
+  <header class="workflow-modal-header workflow-modal-header-centered">
+    <h2 id="inventory-reentry-title">Reingreso al inventario</h2>
+    <button class="modal-close" type="button" data-close-reentry-modal aria-label="Cerrar reingreso">×</button>
+  </header>
+  <p id="inventory-reentry-status" class="workflow-status" role="status" aria-live="polite" hidden></p>
+  <form id="inventory-reentry-form" class="inventory-reentry-form">
+    <div class="field-group"><label for="inventory-reentry-loan">Control devuelto</label><select id="inventory-reentry-loan" required><option value="">Selecciona un control en uso</option></select></div>
+    <div class="field-group"><label for="inventory-reentry-recipient">Persona que entrega físicamente el control</label><input id="inventory-reentry-recipient" name="recibe" autocomplete="name" required placeholder="Nombre de quien devuelve el control"></div>
+    <a id="inventory-reentry-generate-charge" class="form-return" href="{{ url_for('generar_cobro') }}" hidden>Ir a Generar Cobro para autorizar</a>
+    <div class="form-actions"><button class="primary-action" type="submit">Registrar reingreso</button><button class="secondary-action" type="button" data-close-reentry-modal>Cancelar</button></div>
+  </form>
+</dialog>
 <dialog class="patient-workflow room-patient-modal" id="room-patient-modal" aria-labelledby="room-patient-modal-title">
   <div class="room-patient-modal-header"><h2 id="room-patient-modal-title">Paciente encontrado</h2></div>
   <div id="patient-search-status" class="workflow-status" role="status" aria-live="polite" hidden></div>
@@ -51,7 +94,7 @@
   <form id="home-loan-form" class="loan-form-grid compact-loan-form">
     <input id="loan-document" type="hidden" autocomplete="off">
     <div class="field-group modal-wide"><label for="loan-physical-control">Marca del control asignado</label><select id="loan-physical-control" required disabled><option value="">Validar habitación primero</option></select></div>
-    <div class="field-group modal-wide loan-recipient-field"><label for="loan-recipient">Persona que recibe el control</label><input id="loan-recipient" autocomplete="name" placeholder="Nombre de quien recibe" required></div>
+    <div class="field-group modal-wide loan-recipient-field"><label for="loan-recipient">Nombre de quien recibe el control</label><input id="loan-recipient" autocomplete="name" placeholder="Nombre de quien recibe" required></div>
     <div class="field-group modal-wide"><label for="loan-relationship">Parentesco</label><select id="loan-relationship" required><option value="">Selecciona el parentesco</option><option>Paciente</option><option>C&#243;nyuge</option><option>Hijo/a</option><option>Padre/Madre</option><option>Familiar</option><option>Otro</option></select></div>
     <input id="loan-room-display" type="hidden"><input id="loan-delivered-at" type="hidden">
     <select id="loan-bed-display" hidden></select>
