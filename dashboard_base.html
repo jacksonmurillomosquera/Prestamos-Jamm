@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Gestión de préstamos de controles de TV de la Clínica CES.">
   <title>{% block title %}Préstamos de Controles de TV{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='navbar-final-capture-20261117') }}&rev=49">
-  {% if active_page == 'inicio' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-home.css', v='dashboard-home-restored-20261117') }}">{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='inventory-modals-20261028') }}&rev=79">
 </head>
 <body class="dashboard-page{% if active_page == 'inicio' %} dashboard-home-page{% endif %}{% if active_page == 'traslado' %} transfer-page-shell{% endif %}">
   <div class="app-layout app-layout-single">
@@ -15,19 +14,15 @@
         {% if active_page and active_page != 'inicio' and active_page != 'traslado' and active_page != 'historial' %}
         <button class="secondary-action global-back-button" type="button" onclick="if (history.length > 1) history.back(); else window.location.href='{{ url_for('dashboard') }}';" aria-label="Regresar a la página anterior">← Regresar</button>
         {% endif %}
-        <div class="topbar-user-area">
-          <div class="topbar-user"><span class="user-avatar">{{ usuario_nombre[0]|upper }}</span><span><strong>{{ usuario_nombre }}</strong><small>Ejecutivo de Cuenta</small></span><a class="dashboard-logout" href="{{ url_for('logout') }}">Cerrar sesión</a></div>
-        </div>
-        <div class="topbar-brand-area">
-          <a class="topbar-brand" href="{{ url_for('dashboard') }}" aria-label="Clínica CES">
-            <img src="{{ url_for('static', filename='img/Logo.png') }}" alt="">
-            <span>Clínica CES</span>
-          </a>
-        </div>
+        <a class="topbar-brand" href="{{ url_for('dashboard') }}" aria-label="Clínica CES">
+          <img src="{{ url_for('static', filename='img/Logo.png') }}" alt="Logo de Clínica CES">
+        </a>
+        <div class="topbar-user"><span class="user-avatar">{{ usuario_nombre[0]|upper }}</span><span><strong>{{ usuario_nombre }}</strong><small>Ejecutivo de Cuenta</small></span><a class="dashboard-logout" href="{{ url_for('logout') }}">Cerrar sesión</a></div>
       </header>
       {% block content %}{% endblock %}
+      {% if active_page == 'inicio' %}<footer class="dashboard-footer" aria-hidden="true"></footer>{% endif %}
     </main>
   </div>
-  <script src="{{ url_for('static', filename='dashboard_modular.js', v='inventory-modals-20261028') }}&rev=47"></script>
+  <script src="{{ url_for('static', filename='dashboard_modular.js', v='inventory-modals-20261028') }}&rev=57"></script>
 </body>
 </html>

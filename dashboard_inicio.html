@@ -4,38 +4,39 @@
 {% block content %}
 <section class="dashboard-content dashboard-home">
   <section class="welcome-banner" aria-labelledby="welcome-title">
+    <img class="welcome-illustration" src="{{ url_for('static', filename='img/para el inicio.jpg') }}" alt="" aria-hidden="true">
     <div class="welcome-copy">
-      <h1 id="welcome-title"><span>¡Hola!</span><span>{{ usuario_nombre }}</span></h1>
+      <h1 id="welcome-title"><span>&#161;Hola!</span><span>{{ usuario_nombre }}</span></h1>
       <h3>Nos alegra tenerte aquí.</h3>
-      <p>Desde aquí puedes gestionar los préstamos y realizar consultas, mirar la disponibilidad de los controles. También puedes realizar el seguimiento de cada entrega y devolución de manera fácil y organizada.</p>
+      <p><span>Desde aquí, puedes gestionar los préstamos, realizar consultas,</span><span>mirar la disponibilidad de los controles, hacer el seguimiento</span><span> de cada entrega y devolución de manera fácil y organizada.</span></p>
     </div>
   </section>
   <nav class="home-quick-actions" aria-label="Accesos rápidos">
-    <article class="quick-action home-search-action">
-      <span class="quick-action-icon" aria-hidden="true">⌕</span>
-      <div class="home-search-content"><strong>Buscar por habitación</strong><small>Consulta pacientes hospitalizados en una habitación</small>
-        <form class="home-patient-search" data-search-type="habitacion"><label class="sr-only" for="home-bed-query">Número de habitación</label><input id="home-bed-query" name="q" type="search" placeholder="Ej. 310 o 434" autocomplete="off" required><button class="primary-action" type="submit">Buscar</button></form>
+    <article class="quick-action home-search-action home-room-search-action">
+      <span class="quick-action-icon" aria-hidden="true"><img src="{{ url_for('static', filename='img/buscar-habitacion.svg') }}" alt=""></span>
+      <div class="home-search-content"><strong>Buscar por habitación</strong><small>hospitalizados por habitación</small>
+        <form class="home-patient-search" data-search-type="habitacion"><label class="sr-only" for="home-bed-query">Número de habitación</label><input id="home-bed-query" name="q" type="search" placeholder="Ej. 310 " autocomplete="off" required><button class="primary-action" type="submit">Buscar</button></form>
       </div>
     </article>
-    <article class="quick-action home-search-action">
-      <span class="quick-action-icon" aria-hidden="true">⌕</span>
-      <div class="home-search-content"><strong>Buscar por identificación</strong><small>Consulta por documento o historia clínica</small>
-        <form class="home-patient-search" data-search-type="identificacion"><label class="sr-only" for="home-id-query">Número de identificación</label><input id="home-id-query" name="q" type="search" placeholder="Número de documento" autocomplete="off" required><button class="primary-action" type="submit">Buscar</button></form>
+    <article class="quick-action home-search-action home-id-search-action">
+      <span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="10" cy="9" r="2.2"/><path d="M6.5 16c.7-2 2-3 3.5-3s2.8 1 3.5 3m2-6h2m-2 3h2m-2 3h2"/></svg></span>
+      <div class="home-search-content"><strong>Buscar por identificación</strong><small>Consulta por documento </small>
+        <form class="home-patient-search" data-search-type="identificacion"><label class="sr-only" for="home-id-query">N.identificación</label><input id="home-id-query" name="q" type="search" placeholder="Número de documento" autocomplete="off" required><button class="primary-action" type="submit">Buscar</button></form>
       </div>
     </article>
-    <a class="quick-action quick-action-transfer home-action-button" href="{{ url_for('traslado') }}"><span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 8h15m0 0-4-4m4 4-4 4M20 16H5m0 0 4 4m-4-4 4-4" /></svg></span><span><strong>Traslados</strong><small>Gestiona cambios de habitación</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></a>
-    <a class="quick-action quick-action-history" href="{{ url_for('generar_cobro') }}"><span class="quick-action-icon" aria-hidden="true">▤</span><span><strong>Generar Cobro</strong><small>Consulta el paciente y prepara el comprobante</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></a>
+    <article class="quick-action quick-action-transfer home-action-button"><span class="quick-action-icon" aria-hidden="true"><img src="{{ url_for('static', filename='img/traslado-pacientes.svg') }}" alt=""></span><span class="home-action-copy"><strong>Traslado de pacientes</strong><small>cambios de habitación</small></span><a class="primary-action home-action-cta" href="{{ url_for('traslado') }}">Buscar</a></article>
+    <article class="quick-action quick-action-history home-action-button"><span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 3h14v18l-3-2-4 2-4-2-3 2V3Z"/><path d="M8 8h8m-8 4h8m-8 4h5"/></svg></span><span class="home-action-copy"><strong>Generar Cobro</strong><small>Consulta el paciente y prepara el comprobante</small></span><a class="primary-action home-action-cta" href="{{ url_for('generar_cobro') }}">Buscar</a></article>
   </nav>
   <section class="home-metrics" aria-labelledby="home-metrics-title">
     <div class="home-metrics-heading"><h2 id="home-metrics-title">Resumen de controles</h2></div>
     <div class="stat-grid home-stat-grid" aria-label="Métricas rápidas">
       <article class="stat-card stat-green inventory-stat" data-inventory-filter="DISPONIBLE" tabindex="0" role="button" aria-label="Ver controles disponibles" aria-haspopup="dialog">
-        <span class="stat-icon" aria-hidden="true">▣</span><div><small>Controles disponibles</small><strong id="count-available">—</strong><span class="stat-trend">Inventario actualizado</span></div>
+        <span class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m5 12 4 4L19 6"/></svg></span><div><small>Controles disponibles</small><strong id="count-available">{{ controles_disponibles }}</strong><span class="stat-trend">Inventario actualizado</span></div>
       </article>
-      <article class="stat-card stat-red inventory-stat" data-inventory-filter="EN_USO" tabindex="0" role="button" aria-label="Ver controles en uso" aria-haspopup="dialog">
-        <span class="stat-icon" aria-hidden="true">◷</span><div><small>Controles en uso</small><strong id="count-in-use">0</strong><span class="stat-trend">No disponibles para préstamo</span></div>
+      <article class="stat-card stat-orange inventory-stat" data-inventory-filter="EN_USO" tabindex="0" role="button" aria-label="Ver controles en uso" aria-haspopup="dialog">
+        <span class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><small>Controles en uso</small><strong id="count-in-use">{{ controles_en_uso }}</strong><span class="stat-trend">No disponibles para préstamo</span></div>
       </article>
-      <button class="quick-action quick-action-reentry home-action-button home-reentry-bottom" id="open-inventory-reentry" type="button"><span class="quick-action-icon" aria-hidden="true">↩</span><span><strong>Reingreso al inventario</strong><small>Registrar un control devuelto</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></button>
+      <button class="quick-action quick-action-reentry home-action-button home-reentry-bottom" id="open-inventory-reentry" type="button"><span class="quick-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg></span><span><strong>Reingreso al inventario</strong><small>Registrar un control devuelto</small></span><span class="quick-action-arrow" aria-hidden="true">→</span></button>
     </div>
   </section>
   </section>
@@ -47,7 +48,7 @@
   <p id="in-use-status" class="workflow-status" role="status" aria-live="polite" hidden></p>
   <section class="inventory-list-view" id="inventory-list-view" aria-label="Controles del estado seleccionado">
     <label class="inventory-search" for="inventory-search" hidden>Filtrar la habitación<input id="inventory-search" type="search" placeholder="Número de habitación" autocomplete="off"></label>
-    <div class="table-wrap"><table class="inventory-table in-use-table"><thead><tr><th>Usuario / Documento</th><th>Habitaci&#243;n / cama</th><th>Pr&#233;stamo / D&#237;as en uso</th><th>Control</th><th>Estado</th><th>Detalle</th></tr></thead><tbody id="in-use-rows"></tbody></table></div>
+    <div class="table-wrap"><table class="inventory-table in-use-table"><thead><tr><th id="inventory-primary-heading">Usuario / Documento</th><th>Habitaci&#243;n / cama</th><th>Pr&#233;stamo / D&#237;as en uso</th><th>Control</th><th>Estado</th><th>Detalle</th></tr></thead><tbody id="in-use-rows"></tbody></table></div>
     <nav class="modal-pagination" aria-label="Paginación de controles"><button class="secondary-action" id="inventory-page-previous" type="button" aria-label="Página anterior">Anterior</button><span id="inventory-page-label" aria-live="polite">Página 1 de 1</span><button class="secondary-action" id="inventory-page-next" type="button" aria-label="Página siguiente">Siguiente</button></nav>
   </section>
   <section class="transfer-detail" id="transfer-detail" hidden aria-labelledby="transfer-detail-title">
@@ -55,6 +56,9 @@
     <section class="tracking-patient-summary" id="tracking-patient-summary" aria-label="Paciente consultado" hidden>
       <div><dt>Paciente</dt><dd id="tracking-patient-name">—</dd></div>
       <div><dt>Documento</dt><dd id="tracking-patient-document">—</dd></div>
+      <div><dt>Control</dt><dd id="tracking-control-code">—</dd></div>
+      <div><dt>Estado</dt><dd id="tracking-control-status">—</dd></div>
+      <div><dt>Habitación actual</dt><dd id="tracking-control-location">—</dd></div>
     </section>
     <p id="location-tracking-status" class="workflow-status" role="status" aria-live="polite" hidden></p>
     <section class="transfer-history" aria-label="Ruta del control">
@@ -78,6 +82,14 @@
     <div class="form-actions"><button class="primary-action" type="submit">Registrar reingreso</button><button class="secondary-action" type="button" data-close-reentry-modal>Cancelar</button></div>
   </form>
 </dialog>
+<dialog class="inventory-reentry-success-modal" id="inventory-reentry-success-modal" aria-labelledby="inventory-reentry-success-title" aria-describedby="inventory-reentry-success-message">
+  <div class="inventory-reentry-success-mark" aria-hidden="true">✓</div>
+  <p class="inventory-reentry-success-eyebrow">Reingreso completado</p>
+  <h2 id="inventory-reentry-success-title">¡Control devuelto satisfactoriamente!</h2>
+  <p id="inventory-reentry-success-message" class="inventory-reentry-success-message"></p>
+  <div class="inventory-reentry-success-total"><span>Total definitivo</span><strong id="inventory-reentry-success-amount"></strong></div>
+  <button id="inventory-reentry-success-close" class="inventory-reentry-success-close" type="button">Continuar</button>
+</dialog>
 <dialog class="patient-workflow room-patient-modal" id="room-patient-modal" aria-labelledby="room-patient-modal-title">
   <div class="room-patient-modal-header"><h2 id="room-patient-modal-title">Paciente encontrado</h2></div>
   <div id="patient-search-status" class="workflow-status" role="status" aria-live="polite" hidden></div>
@@ -85,7 +97,7 @@
   <section id="patient-details" class="patient-summary" hidden>
     <h3 id="loan-patient-name"></h3>
     <dl aria-label="Datos del paciente">
-      <div><dt>CC</dt><dd id="result-patient-identity"></dd></div>
+      <div><dt id="result-patient-identity-label">Documento</dt><dd id="result-patient-identity"></dd></div>
       <div><dt>Habitaci&#243;n / Cama</dt><dd id="result-patient-bed"></dd></div>
     </dl>
   </section>
@@ -102,7 +114,7 @@
     <div class="workflow-status modal-wide" id="loan-persistence-notice" role="status" aria-live="polite" hidden></div>
   </form>
   </details>
-  <details class="no-tv-charge" id="tv-exemption-accordion">
+  <details class="no-tv-charge" id="tv-exemption-accordion" hidden>
     <summary id="no-tv-charge-title">No se cobra servicio de TV a:</summary>
     <fieldset class="tv-exemption-options" aria-label="Categoría de exoneración del servicio de TV">
       <legend>Selecciona una categoría si el paciente está exento</legend>
@@ -117,6 +129,6 @@
     </fieldset>
     <p class="tv-exemption-note" id="tv-exemption-note" role="status" aria-live="polite">Si no seleccionas una categoría, el préstamo se registrará con la tarifa habitual.</p>
   </details>
-  <div class="patient-modal-footer patient-modal-actions"><button id="save-loan" class="primary-action" type="submit" form="home-loan-form" disabled>Guardar pr&#233;stamo</button><button class="secondary-action" id="cancel-loan-form" type="button">Regresar</button><button id="close-patient-workflow" class="secondary-action" type="button">Cerrar</button></div>
+  <div class="patient-modal-footer patient-modal-actions"><button id="save-loan" class="primary-action" type="submit" form="home-loan-form" disabled>Guardar pr&#233;stamo</button><button id="close-patient-workflow" class="secondary-action" type="button">Cerrar</button></div>
 </dialog>
 {% endblock %}
